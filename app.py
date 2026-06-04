@@ -4,7 +4,7 @@ import os
 import json
 import requests
 import re
-import dashscope
+from openai import OpenAI
 from datetime import datetime
 from dotenv import load_dotenv
 from bs4 import BeautifulSoup
@@ -18,8 +18,13 @@ load_dotenv()
 
 class QwenGenerator:
     def __init__(self):
-        dashscope.api_key = os.getenv("DASHSCOPE_API_KEY")
-        self.model = os.getenv("QWEN_MODEL_NAME", "qwen-plus")
+        # OpenRouter usa la interfaz de OpenAI pero con su propia URL
+        self.client = OpenAI(
+            api_key=os.getenv("OPENROUTER_API_KEY"),
+            base_url="https://openrouter.ai/api/v1"
+        )
+        # Modelo Qwen 2.5 72B (gratuito/barato y excelente en español)
+        self.model = "qwen/qwen-2.5-72b-instruct"
 
     def generar(self, empresa, tipo):
         prompts = {
@@ -28,20 +33,17 @@ class QwenGenerator:
             "comparativa": f"Compara brevemente a {empresa['nombre']} con {empresa['sector_relacionado_1']} y {empresa['sector_relacionado_2']} en cuanto a facilidad de contacto. Sé objetivo y breve (máx 100 palabras). Español de España."
         }
         try:
-            response = dashscope.Generation.call(
+            response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
-                    {"role": "system", "content": "Eres un redactor experto en SEO y consumo en España. Escribe texto 100% original, natural, sin clichés de IA."},
+                    {"role": "system", "content": "Eres un redactor experto en SEO y consumo en España. Escribe texto 100% original, natural, sin clichés de IA. Evita frases como 'En conclusión', 'Es importante destacar', 'Sumérgete'."},
                     {"role": "user", "content": prompts[tipo]}
                 ],
-                temperature=0.7,
-                result_format='message'
+                temperature=0.7
             )
-            if response.status_code == 200:
-                return response.output.choices[0].message.content.strip()
-            return f"[Error Qwen: {response.message}]"
+            return response.choices[0].message.content.strip()
         except Exception as e:
-            return f"[Error: {str(e)}]"
+            return f"[Error OpenRouter: {str(e)}]"
 
 class SmartScraper:
     def extraer(self, url):
@@ -83,7 +85,7 @@ class WPPublisher:
         payload = {
             "title": titulo,
             "content": contenido,
-            "status": "draft" # Se publica como borrador por seguridad
+            "status": "draft"
         }
         try:
             response = requests.post(url, auth=(user, pwd), json=payload)
@@ -111,8 +113,10 @@ else:
 # --- Sidebar ---
 st.sidebar.header("⚙️ Configuración")
 st.sidebar.info("Las claves se cargan desde el archivo `.env`")
-if not os.getenv("DASHSCOPE_API_KEY"):
-    st.sidebar.error("⚠️ Falta DASHSCOPE_API_KEY en el archivo .env")
+if not os.getenv("OPENROUTER_API_KEY"):
+    st.sidebar.error("⚠️ Falta OPENROUTER_API_KEY en el archivo .env")
+else:
+    st.sidebar.success("✅ API Key de OpenRouter configurada")
 
 # --- Tabs Principales ---
 tab1, tab2, tab3, tab4 = st.tabs(["📊 1. Base de Datos", "🕷️ 2. Scraping", "🤖 3. Generar Artículo", "🚀 4. Publicar"])
@@ -122,13 +126,12 @@ with tab1:
     st.header("Gestión de Empresas")
     st.markdown("Edita la tabla directamente como si fuera Excel. Los cambios se guardan al pulsar el botón.")
     
-    # Data editor permite editar la tabla visualmente
     edited_df = st.data_editor(df, num_rows="dynamic", use_container_width=True)
     
     if st.button("💾 Guardar Cambios en CSV", type="primary"):
         edited_df.to_csv(CSV_PATH, index=False)
         st.success("✅ Base de datos actualizada correctamente.")
-        df = edited_df # Recargar
+        df = edited_df
 
 # TAB 2: SCRAPING
 with tab2:
@@ -137,7 +140,7 @@ with tab2:
     
     if st.button("🔍 Analizar Web"):
         if url:
-            with st.spinner("La IA está rastreando la web en busca del 900 y horarios..."):
+            with st.spinner("Rastreando la web en busca del 900 y horarios..."):
                 scraper = SmartScraper()
                 resultado = scraper.extraer(url)
                 
@@ -146,7 +149,7 @@ with tab2:
                 col2.metric("Horario Detectado", resultado['horario'])
                 
                 if resultado['telefono'] != "No encontrado" and resultado['telefono'] != "Error":
-                    st.success("¡Datos extraídos con éxito! Puedes copiarlos y pegarlos en la pestaña 'Base de Datos'.")
+                    st.success("¡Datos extraídos con éxito! Cópialos y pégalos en la pestaña 'Base de Datos'.")
 
 # TAB 3: GENERADOR CON IA
 with tab3:
@@ -158,16 +161,14 @@ with tab3:
         empresa_seleccionada = st.selectbox("Selecciona una empresa para generar su artículo:", df['nombre'].dropna().tolist())
         datos_empresa = df[df['nombre'] == empresa_seleccionada].iloc[0].to_dict()
         
-        if st.button("✨ Generar Contenido con Qwen", type="primary"):
+        if st.button("✨ Generar Contenido con Qwen (OpenRouter)", type="primary"):
             with st.spinner("Qwen está redactando contenido único, humano y optimizado..."):
                 ai = QwenGenerator()
                 
-                # Generar las 3 secciones clave
                 exp = ai.generar(datos_empresa, "experiencia")
                 consejos = ai.generar(datos_empresa, "consejos")
                 comp = ai.generar(datos_empresa, "comparativa")
                 
-                # Guardar en session state para usar en la siguiente pestaña
                 st.session_state['articulo_exp'] = exp
                 st.session_state['articulo_consejos'] = consejos
                 st.session_state['articulo_comp'] = comp
@@ -191,7 +192,6 @@ with tab4:
         exp = st.session_state.get('articulo_exp', '')
         consejos = st.session_state.get('articulo_consejos', '')
         
-        # Construir el artículo final en Markdown
         articulo_final = f"""# Teléfono Gratuito de {emp['nombre']} {datetime.now().year} - Atención al Cliente Gratis
 
 **Última verificación:** {datetime.now().strftime("%d de %B de %Y")} ✅  
@@ -233,7 +233,6 @@ El teléfono de atención al cliente gratuito de **{emp['nombre']}** es el **{em
         
         st.divider()
         
-        # Validación
         st.subheader("🛡️ Validación Automática para AdSense y SEO")
         validador = ValidadorAdSense()
         resultado_val = validador.validar(articulo_final, emp)
@@ -248,7 +247,6 @@ El teléfono de atención al cliente gratuito de **{emp['nombre']}** es el **{em
         
         st.divider()
         
-        # Botón de publicación
         if st.button("📤 Publicar como Borrador en WordPress", type="primary", disabled=not resultado_val['aprobado']):
             with st.spinner("Conectando con WordPress..."):
                 publisher = WPPublisher()
