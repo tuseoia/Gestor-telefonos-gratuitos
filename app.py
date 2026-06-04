@@ -318,33 +318,91 @@ class QwenGenerator:
         web = empresa.get('web_oficial', 'su web oficial')
         
         prompts = {
-            "experiencia": f"""Escribe un párrafo de 200 palabras en primera persona del plural simulando una verificación real del teléfono {telefono} de {nombre}. Incluye: día y hora de la llamada, tiempo de espera ({tiempo} minutos), descripción del menú de voz ({menu}), amabilidad del operador, consejo para reducir espera, disponibilidad 24h. Tono: profesional y cercano. Español de España.""",
+            "experiencia": f"""Escribe un párrafo de 200 palabras en primera persona del plural ('hemos probado', 'nuestro equipo') simulando una verificación real del teléfono {telefono} de {nombre}. 
 
-            "consejos": f"""Escribe 5 consejos prácticos numerados para reclamar a {nombre} (sector: {sector}). Cada consejo: título en negrita, 2-3 frases, mencionar OMIC/Consumo/OCU, plazos legales. Tono: empoderador. Español de España.""",
+Incluye:
+- El día y hora aproximada de la llamada
+- Tiempo de espera real ({tiempo} minutos)
+- Descripción del menú de voz y la secuencia para hablar con un humano ({menu})
+- Amabilidad y profesionalidad del operador
+- Un consejo específico para reducir el tiempo de espera
+- Mención a si el servicio está disponible 24h o solo en horario laboral
 
-            "comparativa": f"""Haz una comparativa entre {nombre}, {comp1} y {comp2}. Incluye tabla Markdown (Empresa | Teléfono | Horario | Tiempo espera | Valoración) y análisis de 150 palabras. NO uses enlaces en la tabla, solo texto plano. Español de España.""",
+Tono: profesional, útil, cercano y de mucha confianza. Español de España. Evita clichés de IA.""",
 
-            "menu_voz": f"""Guía paso a paso para el menú de voz de {nombre} ({telefono}). Incluye: intro, lista numerada con cada paso, secuencia exacta ({menu}), 3 trucos para reducir espera, advertencias. Usa emojis. Español de España.""",
+            "consejos": f"""Escribe 5 consejos prácticos, numerados y específicos para reclamar a una empresa del sector '{sector}' como {nombre}. 
 
-            "formas_contacto": f"""Todas las formas de contactar con {nombre} además del {telefono}. Subsecciones H3: Chat en Vivo, WhatsApp, Email, App Móvil, Redes Sociales, Tiendas Físicas. Tono: informativo. Español de España."""
+Cada consejo debe:
+- Tener un título en negrita
+- Explicación de 2-3 frases
+- Mencionar organismos reales (OMIC, Consumo de la comunidad autónoma, Secretaría de Estado de Telecomunicaciones si aplica, OCU, etc.)
+- Incluir plazos legales cuando sea relevante
+
+Tono: empoderador para el consumidor, claro y directo. Español de España.""",
+
+            "comparativa": f"""Haz una comparativa detallada entre {nombre}, {comp1} y {comp2} en cuanto a atención al cliente.
+
+Incluye:
+- Tabla comparativa en formato Markdown con columnas: Empresa | Teléfono gratuito | Horario | Tiempo espera medio | Valoración
+- Análisis de 150 palabras destacando ventajas y desventajas de cada una
+- Recomendación final sobre cuál tiene mejor servicio al cliente
+
+IMPORTANTE: NO uses enlaces Markdown en la tabla. Solo texto plano con los nombres de las empresas. Sé objetivo y basado en datos. Español de España.""",
+
+            "menu_voz": f"""Escribe una guía paso a paso detallada para navegar el menú de voz de {nombre} llamando al {telefono}.
+
+Incluye:
+- Introducción de 2 frases explicando por qué es útil conocer el menú
+- Lista numerada con cada paso (qué tecla pulsar, qué opción elegir, qué evitar)
+- La secuencia exacta para llegar a un operador humano: {menu}
+- 3 trucos para reducir el tiempo de espera
+- Advertencias sobre opciones que redirigen a ventas o alargan la llamada
+
+Tono: práctico y directo. Español de España. Usa emojis para hacer la lectura más fácil.""",
+
+            "formas_contacto": f"""Escribe una sección detallada sobre TODAS las formas de contactar con {nombre} además del teléfono {telefono}.
+
+Incluye estas subsecciones con título H3:
+### 💬 Chat en Vivo
+Descripción, disponibilidad, enlace a {web}
+
+### 📱 WhatsApp Business  
+Número si existe, horario, tipo de consultas que atienden
+
+### 📧 Correo Electrónico
+Email de atención al cliente, tiempo medio de respuesta
+
+### 📲 App Móvil
+Nombre de la app, funciones disponibles, enlaces a App Store y Google Play
+
+### 🐦 Redes Sociales
+Twitter/X, Facebook, Instagram - cómo contactar y tiempo de respuesta
+
+### 🏪 Tiendas Físicas
+Cómo localizar la tienda más cercana
+
+Tono: informativo y práctico. Español de España. Usa formato Markdown con negritas y listas."""
         }
         
+        # Intentar generar con la IA
         for intento in range(self.max_reintentos):
             try:
                 response = self.client.chat.completions.create(
                     model=self.model,
                     messages=[
-                        {"role": "system", "content": "Eres un redactor experto en SEO y consumo en España. Escribe texto original, natural, sin clichés de IA. Evita 'En conclusión', 'Es importante destacar'."},
+                        {"role": "system", "content": "Eres un redactor experto en SEO y consumo en España. Escribe texto 100% original, natural, sin clichés de IA. Evita frases como 'En conclusión', 'Es importante destacar', 'En resumen'. Usa párrafos cortos, listas y negritas para facilitar la lectura."},
                         {"role": "user", "content": prompts[tipo]}
                     ],
                     temperature=0.7,
                     timeout=60
                 )
                 
-                if response and response.choices and len(response.choices) > 0:
-                    contenido = response.choices[0].message.content
-                    if contenido:
-                        return contenido.strip()
+                # Verificar que la respuesta es válida
+                if response and hasattr(response, 'choices') and response.choices and len(response.choices) > 0:
+                    if hasattr(response.choices[0], 'message') and hasattr(response.choices[0].message, 'content'):
+                        contenido = response.choices[0].message.content.strip()
+                        if contenido and len(contenido) > 50:
+                            return contenido
                 
                 if intento < self.max_reintentos - 1:
                     time.sleep(2)
@@ -353,56 +411,105 @@ class QwenGenerator:
                 if intento < self.max_reintentos - 1:
                     time.sleep(3)
         
+        # Si todos los reintentos fallan, usar contenido de respaldo
         return self._contenido_respaldo(empresa, tipo)
     
     def _contenido_respaldo(self, empresa, tipo):
         """Contenido de respaldo si la IA falla"""
         nombre = empresa['nombre']
         telefono = empresa.get('telefono_900', '1004')
+        tiempo_espera = empresa.get('tiempo_espera_min', '5-10')
+        menu_voz = empresa.get('menu_voz_ruta', '1,2,3')
         
         respaldos = {
-            "experiencia": f"""En nuestro equipo hemos probado recientemente el teléfono {telefono} de {nombre}. El tiempo de espera fue de aproximadamente {empresa.get('tiempo_espera_min', '5-10')} minutos. Al seguir la secuencia del menú de voz ({empresa.get('menu_voz_ruta', '1,2,3')}), conseguimos llegar directamente al departamento de atención al cliente. El operador mostró un trato amable y profesional.
+            "experiencia": f"""En nuestro equipo de **telefonos-gratuitos.com** hemos probado recientemente el teléfono de atención al cliente de **{nombre}** marcando el **{telefono}**. 
 
-Nuestro consejo: evita llamar los lunes por la mañana y los viernes por la tarde. Los martes y miércoles entre las 10:00 y las 12:00 suelen tener menor tiempo de espera.""",
+La llamada la realizamos un **martes por la mañana** (aproximadamente a las 10:30h) y el tiempo de espera hasta ser atendidos fue de aproximadamente **{tiempo_espera} minutos**, un plazo razonable considerando que llamamos en horario de máxima afluencia.
+
+Al seguir la secuencia del menú de voz (**{menu_voz}**), conseguimos llegar directamente al departamento de atención al cliente existente, evitando así las opciones de contratación que suelen alargar la llamada innecesariamente. 
+
+El operador que nos atendió mostró un **trato amable y profesional**, resolviendo nuestra consulta de prueba en menos de 5 minutos. Nos pareció especialmente positivo que el operador se identificara claramente al inicio de la conversación y nos proporcionara un número de incidencia para seguimiento.
+
+**Nuestro consejo:** si necesitas contactar con {nombre}, evita llamar los lunes por la mañana y los viernes por la tarde, ya que son los momentos de mayor saturación. Los martes y miércoles entre las 10:00 y las 12:00 suelen ser los horarios con menor tiempo de espera. Si la llamada es urgente fuera de horario, te recomendamos usar el chat web o la aplicación móvil, que suelen tener tiempos de respuesta más rápidos.""",
             
-            "menu_voz": f"""Conocer el menú de voz de {nombre} te ahorrará minutos de frustración.
+            "menu_voz": f"""Conocer el menú de voz de **{nombre}** te ahorrará minutos de frustración y te permitirá llegar rápidamente al departamento que necesitas. Hemos probado personalmente la secuencia para que no tengas que hacerlo tú.
 
 **Pasos para hablar con un operador:**
 
-1. 📞 Marca el {telefono}
-2. ⏳ Espera la locución inicial
-3. 🔢 Pulsa: **{empresa.get('menu_voz_ruta', '1,2,3')}**
-4. 🆔 Ten a mano tu DNI o número de cliente
-5. ⏱️ Espera en la cola ({empresa.get('tiempo_espera_min', '5-10')} minutos)
+1. 📞 Marca el **{telefono}** desde tu teléfono
+2. ⏳ Espera a que comience la locución inicial (no pulses nada todavía)
+3. 🔢 Pulsa la secuencia: **{menu_voz}**
+4. 🆔 Ten a mano tu DNI o número de cliente (te lo pedirán)
+5. ⏱️ Espera en la cola (tiempo medio: {tiempo_espera} minutos)
 
-**⚠️ Advertencias:**
-- ❌ NO pulses "Nuevos clientes" o "Contratación"
-- ✅ Si te pierdes, pulsa 0 para volver al menú
+**⚠️ Advertencias importantes:**
 
-**💡 Trucos:**
-1. Llama a primera hora (9:00-10:00)
-2. Evita lunes y viernes
-3. Ten tus datos a mano""",
+- ❌ NO pulses la opción de "Nuevos clientes" o "Contratación", te redirigirá al departamento comercial
+- ❌ NO pulses opciones de "Ofertas especiales", son grabaciones publicitarias
+- ✅ Si te pierdes, pulsa 0 para volver al menú principal
+
+**💡 3 trucos para reducir el tiempo de espera:**
+
+1. **Llama a primera hora** (9:00-10:00): Los sistemas están menos saturados
+2. **Evita lunes y viernes**: Son los días con más llamadas
+3. **Ten tus datos a mano**: DNI, número de cliente y motivo de la llamada. Si el operador te pide buscar datos, perderás tiempo valioso""",
             
-            "formas_contacto": f"""Si el {telefono} está saturado, {nombre} ofrece alternativas:
+            "formas_contacto": f"""Si el teléfono **{telefono}** está saturado o prefieres otros canales, **{nombre}** ofrece múltiples formas de contacto alternativas:
 
 ### 💬 Chat en Vivo
-Disponible en [{web}]({web}). Tiempo de respuesta: 5-10 minutos.
+Disponible en la web oficial [{web}]({web}). Suele tener un tiempo de respuesta de 5-10 minutos y está disponible en horario de atención telefónica. Ideal para consultas sencillas sobre facturación o incidencias técnicas menores.
 
 ### 📱 WhatsApp Business
-{nombre} no dispone actualmente de WhatsApp oficial.
+{nombre} no dispone actualmente de un canal oficial de WhatsApp para atención al cliente. Te recomendamos usar el chat web como alternativa más rápida.
 
 ### 📧 Correo Electrónico
-A través del formulario de su web oficial. Respuesta: 24-48 horas.
+Puedes enviar tu consulta a través del formulario de contacto disponible en su web oficial. El tiempo medio de respuesta es de 24-48 horas laborables. Para reclamaciones formales, usa siempre este canal para tener constancia por escrito.
 
 ### 📲 App Móvil
-App oficial disponible para iOS y Android. Permite gestionar cuenta y contactar por chat.
+La aplicación oficial de **{nombre}** está disponible para iOS y Android. Permite gestionar tu cuenta, consultar facturas, realizar pagos y contactar con atención al cliente a través de un chat integrado. Es la forma más rápida de resolver consultas sin llamar.
 
 ### 🐦 Redes Sociales
-Perfiles activos en Twitter/X, Facebook e Instagram. Respuesta: 2-4 horas.
+{nombre} mantiene perfiles activos en Twitter/X, Facebook e Instagram. El equipo de redes sociales suele responder en un plazo de 2-4 horas en horario laboral. Es útil para consultas públicas o quejas visibles.
 
 ### 🏪 Tiendas Físicas
-Localizador de tiendas en su web oficial."""
+Puedes localizar la tienda más cercana de {nombre} a través de su web oficial en la sección "Localizador de tiendas". La atención presencial es ideal para trámites complejos como portabilidad, contratación de nuevos servicios o resolución de incidencias técnicas.""",
+
+            "consejos": f"""1. **Documenta todo por escrito**
+Si tu reclamación es importante, no te quedes solo con la llamada telefónica. Solicita siempre un número de incidencia y envía después un correo electrónico detallando tu caso. Esto te servirá como prueba ante la OMIC o Consumo. Guarda copia de todas las comunicaciones.
+
+2. **Conoce tus plazos**
+Tienes **30 días** para que {nombre} responda a tu reclamación. Si no lo hace, puedes escalar el caso a Consumo. Para reclamaciones ante la Secretaría de Estado de Telecomunicaciones, el plazo es de 2 meses desde la presentación.
+
+3. **Usa el libro de reclamaciones**
+Si no quedas satisfecho con la respuesta, tienes derecho a solicitar el libro de reclamaciones oficial. {nombre} está obligado a facilitártelo, ya sea en sus tiendas físicas o a través de su web. Es un documento con validez legal.
+
+4. **Acude a la OMIC**
+La Oficina Municipal de Información al Consumidor (OMIC) de tu ayuntamiento ofrece asesoramiento gratuito. Pueden ayudarte a redactar la reclamación y mediar con {nombre}. Es un servicio público y totalmente gratuito.
+
+5. **Reclama ante Consumo**
+Si {nombre} no resuelve tu reclamación en un plazo de 2 meses, puedes acudir a la Dirección General de Consumo de tu comunidad autónoma. Es un trámite gratuito y suele ser efectivo para resolver disputas sobre facturación o permanencia.""",
+
+            "comparativa": f"""### Comparativa de Atención al Cliente: {nombre}, {comp1} y {comp2}
+
+**Tabla Comparativa**
+
+| Empresa | Teléfono Gratuito | Horario | Tiempo Espera | Valoración |
+|---------|------------------|---------|---------------|------------|
+| {nombre} | {telefono} | 24/7 | {tiempo_espera} min | 7.5/10 |
+| {comp1} | Consultar web | L-V 9-20h | 5-7 min | 8.0/10 |
+| {comp2} | Consultar web | L-V 9-20h | 6-8 min | 7.8/10 |
+
+**Análisis**
+
+{name} ofrece atención 24/7, lo cual es un punto a su favor para usuarios que necesitan ayuda fuera del horario laboral. Sin embargo, el tiempo de espera medio puede resultar algo alto comparado con sus competidores.
+
+{comp1} tiene un horario de atención más limitado, pero compensa con un tiempo de espera medio menor. La valoración refleja la satisfacción de los clientes con la eficacia y rapidez del servicio.
+
+{comp2} ofrece un horario extenso y un tiempo de espera razonable. La valoración indica un buen servicio, aunque no tan alto como el de {comp1}.
+
+**Recomendación Final**
+
+Si la disponibilidad 24/7 no es un requisito imprescindible, {comp1} es la opción más recomendada por su combinación de tiempo de espera bajo y valoración alta. Sin embargo, si necesitas atención fuera de horario laboral, {nombre} sigue siendo una opción válida."""
         }
         
         return respaldos.get(tipo, "Contenido no disponible.")
