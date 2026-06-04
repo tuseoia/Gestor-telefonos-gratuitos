@@ -150,7 +150,60 @@ class SmartScraper:
                 'status': 'error',
                 'detalle': str(e)
             }
-
+class HTMLExtractor:
+    """Extractor manual que analiza HTML pegado por el usuario"""
+    
+    def extraer_de_html(self, html):
+        try:
+            soup = BeautifulSoup(html, 'html.parser')
+            text = soup.get_text(separator=' ', regex=False)
+            
+            # Patrones de teléfonos españoles
+            patrones = [
+                r'900[\s.-]?\d{3}[\s.-]?\d{3}',
+                r'90[12][\s.-]?\d{3}[\s.-]?\d{3}',
+                r'900[\s.-]?\d{2}[\s.-]?\d{2}[\s.-]?\d{2}[\s.-]?\d{2}',
+            ]
+            
+            encontrados = set()  # Usar set para evitar duplicados
+            for patron in patrones:
+                matches = re.findall(patron, text)
+                for match in matches:
+                    # Limpiar y formatear
+                    limpio = re.sub(r'[\s.-]', '', match)
+                    if len(limpio) == 9:
+                        formateado = f"{limpio[:3]} {limpio[3:6]} {limpio[6:]}"
+                        encontrados.add(formateado)
+                    elif len(limpio) == 12:  # Formato 900 XX XX XX XX
+                        formateado = f"{limpio[:3]} {limpio[3:5]} {limpio[5:7]} {limpio[7:9]} {limpio[9:]}"
+                        encontrados.add(formateado)
+            
+            # Buscar horarios
+            patrones_horario = [
+                r'lunes\s+(?:a|al|-)\s+viernes[:\s]+\d{1,2}[:.]\d{2}\s+(?:a|de|hasta|-)\s+\d{1,2}[:.]\d{2}',
+                r'\d{1,2}[:.]\d{2}\s+(?:a|de|hasta|-)\s+\d{1,2}[:.]\d{2}\s+h?',
+                r'de\s+\d{1,2}[:.]\d{2}\s+a\s+\d{1,2}[:.]\d{2}',
+            ]
+            
+            horarios = set()
+            for patron in patrones_horario:
+                matches = re.findall(patron, text, re.IGNORECASE)
+                for match in matches:
+                    horarios.add(match.strip())
+            
+            return {
+                'encontrados': sorted(list(encontrados)),
+                'horarios': sorted(list(horarios)),
+                'status': 'success'
+            }
+            
+        except Exception as e:
+            return {
+                'encontrados': [],
+                'horarios': [],
+                'status': 'error',
+                'error': str(e)
+            }
 class ValidadorAdSense:
     def validar(self, texto, empresa):
         errores = []
