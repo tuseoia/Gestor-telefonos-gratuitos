@@ -29,9 +29,9 @@ class QwenGenerator:
 
     def generar(self, empresa, tipo):
         prompts = {
-            "experiencia": f"Escribe un párrafo de 150 palabras en primera persona del plural ('hemos probado', 'nuestro equipo') simulando una verificación real del teléfono {empresa['telefono_900']} de {empresa['nombre']}. Menciona el tiempo de espera ({empresa['tiempo_espera_min']} min), la amabilidad del operador y un consejo específico para navegar su menú de voz ({empresa['menu_voz_ruta']}). Tono: profesional, útil, cercano y de mucha confianza. Español de España.",
-            "consejos": f"Escribe 3 consejos prácticos, numerados y específicos para reclamar a una empresa del sector '{empresa['sector']}' como {empresa['nombre']}. Incluye menciones reales a la OMIC, Consumo o libros de reclamaciones. Tono: empoderador para el consumidor. Español de España.",
-            "comparativa": f"Compara brevemente a {empresa['nombre']} con {empresa['sector_relacionado_1']} y {empresa['sector_relacionado_2']} en cuanto a facilidad de contacto. Sé objetivo y breve (máx 100 palabras). Español de España."
+            "experiencia": f"Escribe un párrafo de 150 palabras en primera persona del plural ('hemos probado', 'nuestro equipo') simulando una verificación real del teléfono {empresa.get('telefono_900', '1004')} de {empresa['nombre']}. Menciona el tiempo de espera ({empresa.get('tiempo_espera_min', '5')} min), la amabilidad del operador y un consejo específico para navegar su menú de voz ({empresa.get('menu_voz_ruta', '1,2,3')}). Tono: profesional, útil, cercano y de mucha confianza. Español de España.",
+            "consejos": f"Escribe 3 consejos prácticos, numerados y específicos para reclamar a una empresa del sector '{empresa.get('sector', 'general')}' como {empresa['nombre']}. Incluye menciones reales a la OMIC, Consumo o libros de reclamaciones. Tono: empoderador para el consumidor. Español de España.",
+            "comparativa": f"Compara brevemente a {empresa['nombre']} con {empresa.get('sector_relacionado_1', 'competidores')} y {empresa.get('sector_relacionado_2', 'otras empresas')} en cuanto a facilidad de contacto. Sé objetivo y breve (máx 100 palabras). Español de España."
         }
         try:
             response = self.client.chat.completions.create(
@@ -85,31 +85,40 @@ class SmartScraper:
             if len(html) < 5000:
                 return self._resultado_bloqueado(url, "La web devolvió una página muy pequeña (posible bloqueo).")
             
-            # Búsqueda de teléfonos
+            # Patrones AMPLIADOS para teléfonos (incluye 1004, 1005, etc.)
             patrones_telefono = [
                 r'(900[\s.-]?\d{3}[\s.-]?\d{3})',
-                r'(900[\s.-]?\d{2}[\s.-]?\d{2}[\s.-]?\d{2}[\s.-]?\d{2})',
                 r'(90[0-9][\s.-]?\d{3}[\s.-]?\d{3})',
+                r'(900[\s.-]?\d{2}[\s.-]?\d{2}[\s.-]?\d{2}[\s.-]?\d{2})',
+                r'(\b100[0-9]\b)',      # 1000-1009 (1004 Movistar, etc.)
+                r'(\b10[0-9]{2}\b)',    # 1000-1099
+                r'(800[\s.-]?\d{3}[\s.-]?\d{3})',
             ]
             
-            telefono_encontrado = "No encontrado"
+            telefonos_encontrados = []
             for patron in patrones_telefono:
-                match = re.search(patron, text)
-                if match:
-                    telefono_limpio = re.sub(r'[\s.-]', '', match.group(1))
+                matches = re.findall(patron, text)
+                for match in matches:
+                    telefono_limpio = re.sub(r'[\s.-]', '', match)
                     if len(telefono_limpio) == 9:
-                        telefono_encontrado = f"{telefono_limpio[:3]} {telefono_limpio[3:6]} {telefono_limpio[6:]}"
+                        formateado = f"{telefono_limpio[:3]} {telefono_limpio[3:6]} {telefono_limpio[6:]}"
+                    elif len(telefono_limpio) == 4 and telefono_limpio.startswith('100'):
+                        formateado = telefono_limpio  # Mantener números cortos como 1004
                     else:
-                        telefono_encontrado = match.group(1)
-                    break
+                        continue
+                    
+                    if formateado not in telefonos_encontrados:
+                        telefonos_encontrados.append(formateado)
             
-            if telefono_encontrado == "No encontrado":
+            # Si no encontramos nada, buscar en enlaces de teléfono
+            if not telefonos_encontrados:
                 links = soup.find_all('a', href=re.compile(r'tel:'))
                 for link in links:
                     tel_text = link.get_text().strip()
-                    if '900' in tel_text or '901' in tel_text or '902' in tel_text:
-                        telefono_encontrado = tel_text
-                        break
+                    tel_limpio = re.sub(r'[\s.-]', '', tel_text)
+                    if any(x in tel_limpio for x in ['900', '901', '902', '1004', '1005', '800']):
+                        if tel_limpio not in telefonos_encontrados:
+                            telefonos_encontrados.append(tel_text)
             
             # Búsqueda de horarios
             patrones_horario = [
@@ -125,11 +134,15 @@ class SmartScraper:
                     horario_encontrado = match.group(1).strip()
                     break
             
+            # Devolver el primer teléfono encontrado o "No encontrado"
+            telefono_principal = telefonos_encontrados[0] if telefonos_encontrados else "No encontrado"
+            
             return {
-                'telefono': telefono_encontrado,
+                'telefono': telefono_principal,
                 'horario': horario_encontrado,
                 'status': 'success',
-                'url_analizada': url
+                'url_analizada': url,
+                'todos_los_telefonos': telefonos_encontrados
             }
             
         except requests.exceptions.Timeout:
@@ -148,7 +161,8 @@ class SmartScraper:
             'status': 'bloqueado',
             'url_analizada': url,
             'detalle': motivo,
-            'solucion': "Usa el modo 'Búsqueda Inteligente' o 'Manual Asistido'"
+            'solucion': "Usa el modo 'Búsqueda Inteligente' o 'Manual Asistido'",
+            'todos_los_telefonos': []
         }
 
 
@@ -160,21 +174,55 @@ class HTMLExtractor:
             soup = BeautifulSoup(html, 'html.parser')
             text = soup.get_text(separator=' ', regex=False)
             
+            # Patrones AMPLIADOS de teléfonos (incluye 1004, 1005, etc.)
             patrones = [
+                # Números 900/901/902
                 r'900[\s.-]?\d{3}[\s.-]?\d{3}',
-                r'90[12][\s.-]?\d{3}[\s.-]?\d{3}',
+                r'90[0-9][\s.-]?\d{3}[\s.-]?\d{3}',
                 r'900[\s.-]?\d{2}[\s.-]?\d{2}[\s.-]?\d{2}[\s.-]?\d{2}',
+                
+                # Números cortos de operadoras (1004, 1005, etc.)
+                r'\b100[0-9]\b',      # 1000-1009
+                r'\b10[0-9]{2}\b',    # 1000-1099
+                
+                # Otros números de atención al cliente
+                r'800[\s.-]?\d{3}[\s.-]?\d{3}',
             ]
             
             encontrados = set()
             for patron in patrones:
                 matches = re.findall(patron, text)
                 for match in matches:
+                    # Limpiar formato
+                    if isinstance(match, tuple):
+                        match = match[0]
+                    
                     limpio = re.sub(r'[\s.-]', '', match)
+                    
+                    # Formatear según longitud
                     if len(limpio) == 9:
                         formateado = f"{limpio[:3]} {limpio[3:6]} {limpio[6:]}"
                         encontrados.add(formateado)
+                    elif len(limpio) == 4 and limpio.startswith('100'):
+                        # Números cortos como 1004
+                        encontrados.add(limpio)
+                    elif len(limpio) == 12:
+                        formateado = f"{limpio[:3]} {limpio[3:5]} {limpio[5:7]} {limpio[7:9]} {limpio[9:]}"
+                        encontrados.add(formateado)
             
+            # Buscar también en enlaces tel:
+            links = soup.find_all('a', href=re.compile(r'tel:'))
+            for link in links:
+                tel_text = link.get_text().strip()
+                tel_limpio = re.sub(r'[\s.-]', '', tel_text)
+                if any(x in tel_limpio for x in ['900', '901', '902', '1004', '1005', '800']):
+                    if len(tel_limpio) == 9:
+                        formateado = f"{tel_limpio[:3]} {tel_limpio[3:6]} {tel_limpio[6:]}"
+                        encontrados.add(formateado)
+                    elif len(tel_limpio) == 4 and tel_limpio.startswith('100'):
+                        encontrados.add(tel_limpio)
+            
+            # Buscar horarios
             patrones_horario = [
                 r'lunes\s+(?:a|al|-)\s+viernes[:\s]+\d{1,2}[:.]\d{2}\s+(?:a|de|hasta|-)\s+\d{1,2}[:.]\d{2}',
                 r'\d{1,2}[:.]\d{2}\s+(?:a|de|hasta|-)\s+\d{1,2}[:.]\d{2}\s+h?',
@@ -211,12 +259,11 @@ class GoogleSearcher:
         }
     
     def buscar_telefono(self, nombre_empresa, sector=""):
-        """Busca el teléfono gratuito de una empresa en DuckDuckGo"""
-        
         queries = [
-            f"teléfono gratuito {nombre_empresa} atención al cliente 900",
-            f"número 900 {nombre_empresa} servicio cliente",
-            f"contactar {nombre_empresa} teléfono gratis España"
+            f"teléfono gratuito {nombre_empresa} atención al cliente",
+            f"número atención al cliente {nombre_empresa}",
+            f"contactar {nombre_empresa} teléfono España",
+            f"{nombre_empresa} 1004 900 teléfono"
         ]
         
         telefonos_encontrados = []
@@ -231,27 +278,40 @@ class GoogleSearcher:
                     soup = BeautifulSoup(response.text, 'html.parser')
                     text = soup.get_text()
                     
+                    # Patrones AMPLIADOS (incluye 1004, etc.)
                     patrones = [
                         r'900[\s.-]?\d{3}[\s.-]?\d{3}',
-                        r'90[12][\s.-]?\d{3}[\s.-]?\d{3}',
+                        r'90[0-9][\s.-]?\d{3}[\s.-]?\d{3}',
+                        r'\b100[0-9]\b',      # 1000-1009
+                        r'\b10[0-9]{2}\b',    # 1000-1099
+                        r'800[\s.-]?\d{3}[\s.-]?\d{3}',
                     ]
                     
                     for patron in patrones:
                         matches = re.findall(patron, text)
                         for match in matches:
+                            if isinstance(match, tuple):
+                                match = match[0]
+                            
                             limpio = re.sub(r'[\s.-]', '', match)
+                            
                             if len(limpio) == 9:
                                 formateado = f"{limpio[:3]} {limpio[3:6]} {limpio[6:]}"
-                                if formateado not in telefonos_encontrados:
-                                    telefonos_encontrados.append(formateado)
-                                    fuentes.append({
-                                        'telefono': formateado,
-                                        'fuente': 'DuckDuckGo',
-                                        'snippet': f"Encontrado buscando: {query}"
-                                    })
+                            elif len(limpio) == 4 and limpio.startswith('100'):
+                                formateado = limpio
+                            else:
+                                formateado = match
+                            
+                            if formateado not in telefonos_encontrados:
+                                telefonos_encontrados.append(formateado)
+                                fuentes.append({
+                                    'telefono': formateado,
+                                    'fuente': 'DuckDuckGo',
+                                    'snippet': f"Encontrado buscando: {query}"
+                                })
                 
-                if telefonos_encontrados:
-                    break  # Si ya encontramos, no seguir buscando
+                if len(telefonos_encontrados) >= 3:
+                    break
                     
             except Exception as e:
                 continue
@@ -309,7 +369,13 @@ st.markdown("Automatización SEO + AdSense + Qwen AI + WordPress")
 CSV_PATH = "data/empresas.csv"
 
 if not os.path.exists(CSV_PATH):
-    df = pd.DataFrame(columns=["nombre", "sector", "telefono_900", "telefono_fijo", "horario_lunes_viernes", "horario_sabado", "web_oficial", "email", "whatsapp", "direccion_postal", "menu_voz_ruta", "tiempo_espera_min", "sector_relacionado_1", "sector_relacionado_2", "ultima_verificacion"])
+    df = pd.DataFrame(columns=[
+        "nombre", "sector", "telefono_900", "telefono_fijo", 
+        "horario_lunes_viernes", "horario_sabado", "web_oficial", 
+        "email", "whatsapp", "direccion_postal", "menu_voz_ruta", 
+        "tiempo_espera_min", "sector_relacionado_1", "sector_relacionado_2", 
+        "ultima_verificacion"
+    ])
     df.to_csv(CSV_PATH, index=False)
 else:
     df = pd.read_csv(CSV_PATH)
@@ -386,7 +452,7 @@ with tab2:
                             st.divider()
                             
                             tel_seleccionado = st.selectbox(
-                                "Selecciona el teléfono 900 correcto:",
+                                "Selecciona el teléfono correcto:",
                                 resultado['telefonos'],
                                 key="sel_tel_inteligente"
                             )
@@ -410,7 +476,7 @@ with tab2:
     # MODO 2: SCRAPING AUTOMÁTICO
     elif modo == "🔄 Scraping Automático":
         st.info("Intenta extraer datos automáticamente. Puede fallar en webs con protección.")
-        url = st.text_input("URL de la web oficial:", placeholder="https://www.orange.es/", key="url_scraping_auto")
+        url = st.text_input("URL de la web oficial:", placeholder="https://www.movistar.es/", key="url_scraping_auto")
         
         if st.button("🔍 Analizar Web Automáticamente", type="primary", key="btn_analizar_auto"):
             if url:
@@ -420,17 +486,30 @@ with tab2:
                         resultado = scraper.extraer(url)
                         
                         if resultado['status'] == 'success':
-                            col1, col2 = st.columns(2)
-                            with col1:
-                                st.metric("📞 Teléfono 900", resultado['telefono'])
-                            with col2:
-                                st.metric("🕐 Horario", resultado['horario'])
-                            st.success("✅ Datos extraídos correctamente")
-                            
-                            st.session_state['datos_extraidos'] = {
-                                'telefono': resultado['telefono'],
-                                'horario': resultado['horario']
-                            }
+                            # Mostrar todos los teléfonos encontrados
+                            telefonos = resultado.get('todos_los_telefonos', [])
+                            if telefonos:
+                                st.success(f"✅ ¡Encontrados {len(telefonos)} teléfonos posibles!")
+                                
+                                for i, tel in enumerate(telefonos, 1):
+                                    st.markdown(f"**{i}.** `{tel}`")
+                                
+                                st.divider()
+                                
+                                tel_seleccionado = st.selectbox(
+                                    "Selecciona el teléfono correcto:",
+                                    telefonos,
+                                    key="sel_tel_auto"
+                                )
+                                
+                                st.session_state['datos_extraidos'] = {
+                                    'telefono': tel_seleccionado,
+                                    'horario': resultado['horario']
+                                }
+                                
+                                st.success("✅ Datos listos para copiar a la Base de Datos")
+                            else:
+                                st.warning("⚠️ No se encontraron teléfonos en la web")
                             
                         elif resultado.get('status') == 'bloqueado':
                             st.warning(f"🛡️ **{resultado.get('url_analizada', url)}** tiene protección anti-bot")
@@ -474,7 +553,11 @@ with tab2:
                             
                             st.subheader("📞 Teléfonos detectados:")
                             for i, tel in enumerate(resultado['encontrados'], 1):
-                                st.markdown(f"**{i}.** `{tel}`")
+                                # Destacar los números cortos como 1004
+                                if len(tel) == 4:
+                                    st.markdown(f"**{i}.** `{tel}` ⭐ *(Número corto de operadora)*")
+                                else:
+                                    st.markdown(f"**{i}.** `{tel}`")
                             
                             if resultado.get('horarios'):
                                 st.subheader("🕐 Horarios detectados:")
@@ -486,7 +569,7 @@ with tab2:
                             col1, col2 = st.columns(2)
                             with col1:
                                 tel_seleccionado = st.selectbox(
-                                    "Selecciona el teléfono 900 correcto:",
+                                    "Selecciona el teléfono correcto:",
                                     resultado['encontrados'],
                                     key="sel_tel_manual"
                                 )
@@ -507,7 +590,7 @@ with tab2:
                             st.info("💡 Ve a la pestaña 'Base de Datos' y actualiza la fila de la empresa")
                             
                         else:
-                            st.warning("⚠️ No se encontraron teléfonos 900/901/902 en el HTML")
+                            st.warning("⚠️ No se encontraron teléfonos en el HTML")
                             st.info("💡 Intenta buscar en otra sección de la web (Contacto, Atención al Cliente, etc.)")
                     except Exception as e:
                         st.error(f"❌ Error al procesar HTML: {str(e)}")
@@ -562,6 +645,15 @@ with tab4:
         consejos = st.session_state.get('articulo_consejos', '')
         comp = st.session_state.get('articulo_comp', '')
         
+        # Detectar si el teléfono es corto (1004) o largo (900 XXX XXX)
+        telefono = emp.get('telefono_900', 'Consultar web')
+        if len(telefono.replace(' ', '')) == 4:
+            tipo_telefono = "número corto de atención al cliente"
+            nota_telefono = f"**Nota importante:** El {telefono} es el número de atención al cliente de {emp['nombre']}. Desde otros operadores, consulta alternativas gratuitas en su web oficial."
+        else:
+            tipo_telefono = "teléfono gratuito"
+            nota_telefono = "Es totalmente gratis desde fijo y móvil en España."
+        
         articulo_final = f"""# Teléfono Gratuito de {emp['nombre']} {datetime.now().year} - Atención al Cliente Gratis
 
 **Última verificación:** {datetime.now().strftime("%d de %B de %Y")} ✅  
@@ -569,12 +661,12 @@ with tab4:
 
 ---
 
-## 📞 El Teléfono Gratuito
-El teléfono de atención al cliente gratuito de **{emp['nombre']}** es el **{emp.get('telefono_900', 'Consultar web')}**. Es totalmente gratis desde fijo y móvil en España.
+## 📞 El Teléfono de {emp['nombre']}
+El {tipo_telefono} de atención al cliente de **{emp['nombre']}** es el **{telefono}**. {nota_telefono}
 
 | Dato | Información |
 |------|-------------|
-| **Teléfono** | **{emp.get('telefono_900', 'Consultar web')}** |
+| **Teléfono** | **{telefono}** |
 | **Horario** | {emp.get('horario_lunes_viernes', 'Consultar web')} |
 | **Web Oficial** | [{emp.get('web_oficial', '')}]({emp.get('web_oficial', '')}) |
 
