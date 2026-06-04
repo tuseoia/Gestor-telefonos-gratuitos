@@ -227,34 +227,104 @@ with tab1:
 # TAB 2: SCRAPING
 with tab2:
     st.header("🕷️ Extracción Inteligente de Datos")
-    st.info("💡 Si el scraping falla, puedes añadir los datos manualmente en la pestaña 'Base de Datos'")
     
-    url = st.text_input("Pega la URL de la web oficial de la empresa (ej: https://www.orange.es):")
+    # Selector de modo
+    modo = st.radio(
+        "Selecciona el método de extracción:",
+        ["🔄 Automático (Scraping)", "✋ Manual Asistido (Pegar HTML)"],
+        horizontal=True
+    )
     
-    if st.button("🔍 Analizar Web", type="primary"):
-        if url:
-            with st.spinner(" Analizando la web... Esto puede tardar unos segundos"):
-                scraper = SmartScraper()
-                resultado = scraper.extraer(url)
-                
-                if resultado['status'] == 'success':
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        st.metric("📞 Teléfono 900 Detectado", resultado['telefono'])
-                    with col2:
-                        st.metric("🕐 Horario Detectado", resultado['horario'])
+    if modo == "🔄 Automático (Scraping)":
+        st.info("Intenta extraer datos automáticamente. Puede fallar en webs con protección.")
+        url = st.text_input("URL de la web oficial:", placeholder="https://www.orange.es/")
+        
+        if st.button("🔍 Analizar Web Automáticamente", type="primary"):
+            if url:
+                with st.spinner("Analizando la web..."):
+                    scraper = SmartScraper()
+                    resultado = scraper.extraer(url)
                     
-                    st.success("✅ ¡Datos extraídos correctamente!")
-                    st.caption(f"URL analizada: {resultado['url_analizada']}")
+                    if resultado['status'] == 'success':
+                        st.success("✅ Datos extraídos correctamente")
+                        st.json(resultado)
+                    else:
+                        st.error(f"❌ Error: {resultado.get('detalle', 'Error desconocido')}")
+                        st.info("💡 Prueba el modo 'Manual Asistido' pegando el HTML")
+            else:
+                st.warning("⚠️ Introduce una URL")
+    
+    else:
+        # MODO MANUAL ASISTIDO
+        st.success("🎯 Modo Manual Asistido - Infalible")
+        st.markdown("""
+        **Instrucciones:**
+        1. Abre la web de la empresa en tu navegador
+        2. Pulsa **Ctrl+U** (ver código fuente) o **F12** (inspeccionar)
+        3. Copia TODO el HTML (Ctrl+A, Ctrl+C)
+        4. Pégalo en el cuadro de abajo
+        """)
+        
+        html_input = st.text_area(
+            "Pega aquí el HTML completo de la web:",
+            placeholder="<html><head>...</head><body>...</body></html>",
+            height=200
+        )
+        
+        if st.button("🔍 Extraer Datos del HTML", type="primary"):
+            if html_input:
+                with st.spinner("Analizando HTML..."):
+                    try:
+                        extractor = HTMLExtractor()
+                        resultado = extractor.extraer_de_html(html_input)
+                        
+                        if resultado['encontrados']:
+                            st.success(f"✅ Encontrados {len(resultado['encontrados'])} teléfonos y {len(resultado['horarios'])} horarios")
+                            
+                            # Mostrar teléfonos encontrados
+                            st.subheader("📞 Teléfonos detectados:")
+                            for i, tel in enumerate(resultado['encontrados']):
+                                st.markdown(f"**{i+1}.** `{tel}`")
+                            
+                            # Mostrar horarios encontrados
+                            if resultado['horarios']:
+                                st.subheader("🕐 Horarios detectados:")
+                                for i, hor in enumerate(resultado['horarios']):
+                                    st.markdown(f"**{i+1}.** {hor}")
+                            
+                            # Selector para elegir cuál usar
+                            st.divider()
+                            col1, col2 = st.columns(2)
+                            with col1:
+                                tel_seleccionado = st.selectbox(
+                                    "Selecciona el teléfono 900 correcto:",
+                                    resultado['encontrados'],
+                                    key="sel_tel"
+                                )
+                            with col2:
+                                hor_seleccionado = st.selectbox(
+                                    "Selecciona el horario:",
+                                    ["No especificado"] + resultado['horarios'],
+                                    key="sel_hor"
+                                )
+                            
+                            # Guardar en sesión
+                            st.session_state['datos_extraidos'] = {
+                                'telefono': tel_seleccionado,
+                                'horario': hor_seleccionado if hor_seleccionado != "No especificado" else ""
+                            }
+                            
+                            st.success("✅ Datos listos para copiar a la Base de Datos")
+                            st.info("💡 Ve a la pestaña 'Base de Datos' y actualiza la fila de la empresa con estos datos")
+                            
+                        else:
+                            st.warning("⚠️ No se encontraron teléfonos 900/901/902 en el HTML")
+                            st.info("💡 Intenta buscar en otra sección de la web (Contacto, Atención al Cliente, etc.)")
                     
-                    # Botón para copiar al portapapeles (simulado)
-                    st.info("💡 Copia estos datos y pégalos en la pestaña 'Base de Datos'")
-                else:
-                    st.error(f"❌ Error: {resultado['telefono']}")
-                    st.warning(f"📋 Detalle: {resultado.get('detalle', 'Sin detalles')}")
-                    st.info("💡 Solución: Añade los datos manualmente en la pestaña 'Base de Datos' o intenta con otra URL")
-        else:
-            st.warning("⚠️ Por favor, introduce una URL válida")
+                    except Exception as e:
+                        st.error(f"❌ Error al procesar HTML: {str(e)}")
+            else:
+                st.warning("⚠️ Pega el HTML de la web")
 
 # TAB 3: GENERADOR CON IA
 with tab3:
