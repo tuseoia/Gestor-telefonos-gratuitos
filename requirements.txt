@@ -1,6 +1,6 @@
 streamlit
 pandas
-dashscope
+openai
 requests
 beautifulsoup4
 python-dotenv
