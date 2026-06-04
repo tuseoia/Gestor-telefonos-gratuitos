@@ -49,20 +49,107 @@ class QwenGenerator:
 class SmartScraper:
     def extraer(self, url):
         try:
-            headers = {'User-Agent': 'Mozilla/5.0'}
-            response = requests.get(url, headers=headers, timeout=10)
-            soup = BeautifulSoup(response.text, 'html.parser')
+            # Headers más completos para parecer un navegador real
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8',
+                'Referer': 'https://www.google.com/',
+                'DNT': '1',
+                'Connection': 'keep-alive',
+                'Upgrade-Insecure-Requests': '1'
+            }
+            
+            # Timeout más largo y manejo de sesiones
+            session = requests.Session()
+            response = session.get(url, headers=headers, timeout=15)
+            response.raise_for_status()
+            
+            # Intentar diferentes codificaciones
+            response.encoding = response.apparent_encoding
+            html = response.text
+            soup = BeautifulSoup(html, 'html.parser')
+            
+            # Texto completo de la página
             text = soup.get_text(separator=' ', regex=False)
             
-            tel = re.search(r'(900[\s-]?\d{3}[\s-]?\d{3})', text)
-            horario = re.search(r'(\d{1,2}:\d{2}\s*(?:a|de|hasta|-)\s*\d{1,2}:\d{2})', text, re.IGNORECASE)
+            # Múltiples patrones para teléfonos 900
+            patrones_telefono = [
+                r'(900[\s.-]?\d{3}[\s.-]?\d{3})',  # 900 123 456
+                r'(900[\s.-]?\d{2}[\s.-]?\d{2}[\s.-]?\d{2}[\s.-]?\d{2})',  # 900 12 34 56
+                r'(90[0-9][\s.-]?\d{3}[\s.-]?\d{3})',  # 901, 902, etc.
+            ]
+            
+            telefono_encontrado = "No encontrado"
+            for patron in patrones_telefono:
+                match = re.search(patron, text)
+                if match:
+                    telefono_encontrado = match.group(1)
+                    # Limpiar formato
+                    telefono_limpio = re.sub(r'[\s.-]', '', telefono_encontrado)
+                    if len(telefono_limpio) == 9:
+                        telefono_encontrado = f"{telefono_limpio[:3]} {telefono_limpio[3:6]} {telefono_limpio[6:]}"
+                    break
+            
+            # Patrones para horarios más flexibles
+            patrones_horario = [
+                r'(lunes\s+(?:a|al|-)\s+viernes[:\s]+\d{1,2}[:.]\d{2}\s+(?:a|de|hasta|-|–)\s+\d{1,2}[:.]\d{2})',
+                r'(\d{1,2}[:.]\d{2}\s+(?:a|de|hasta|-|–)\s+\d{1,2}[:.]\d{2}\s+h)',
+                r'(de\s+\d{1,2}[:.]\d{2}\s+a\s+\d{1,2}[:.]\d{2})',
+            ]
+            
+            horario_encontrado = "Consultar web"
+            for patron in patrones_horario:
+                match = re.search(patron, text, re.IGNORECASE)
+                if match:
+                    horario_encontrado = match.group(1).strip()
+                    break
+            
+            # Búsqueda específica en elementos comunes
+            if telefono_encontrado == "No encontrado":
+                # Buscar en enlaces de teléfono
+                links = soup.find_all('a', href=re.compile(r'tel:'))
+                for link in links:
+                    tel_text = link.get_text().strip()
+                    if '900' in tel_text or '901' in tel_text or '902' in tel_text:
+                        telefono_encontrado = tel_text
+                        break
             
             return {
-                'telefono': tel.group(1).replace(' ', '').replace('-', '') if tel else "No encontrado",
-                'horario': horario.group(1) if horario else "Consultar web"
+                'telefono': telefono_encontrado,
+                'horario': horario_encontrado,
+                'status': 'success',
+                'url_analizada': url
             }
-        except:
-            return {'telefono': "Error", 'horario': "Error"}
+            
+        except requests.exceptions.Timeout:
+            return {
+                'telefono': "Timeout",
+                'horario': "La web tarda demasiado en responder",
+                'status': 'error',
+                'detalle': 'Timeout de 15 segundos excedido'
+            }
+        except requests.exceptions.ConnectionError:
+            return {
+                'telefono': "Error conexión",
+                'horario': "No se puede conectar",
+                'status': 'error',
+                'detalle': 'Error de conexión o web bloquea scraping'
+            }
+        except requests.exceptions.HTTPError as e:
+            return {
+                'telefono': f"Error HTTP {e.response.status_code}",
+                'horario': "Acceso denegado",
+                'status': 'error',
+                'detalle': f'La web devolvió código {e.response.status_code}'
+            }
+        except Exception as e:
+            return {
+                'telefono': "Error",
+                'horario': "Error inesperado",
+                'status': 'error',
+                'detalle': str(e)
+            }
 
 class ValidadorAdSense:
     def validar(self, texto, empresa):
