@@ -12,18 +12,19 @@ from bs4 import BeautifulSoup
 # Cargar variables de entorno
 load_dotenv()
 
+# Crear carpeta data si no existe (solución para Streamlit Cloud)
+os.makedirs("data", exist_ok=True)
+
 # ==========================================
 # 1. CLASES DEL SISTEMA (Backend)
 # ==========================================
 
 class QwenGenerator:
     def __init__(self):
-        # OpenRouter usa la interfaz de OpenAI pero con su propia URL
         self.client = OpenAI(
             api_key=os.getenv("OPENROUTER_API_KEY"),
             base_url="https://openrouter.ai/api/v1"
         )
-        # Modelo Qwen 2.5 72B (gratuito/barato y excelente en español)
         self.model = "qwen/qwen-2.5-72b-instruct"
 
     def generar(self, empresa, tipo):
@@ -36,7 +37,7 @@ class QwenGenerator:
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
-                    {"role": "system", "content": "Eres un redactor experto en SEO y consumo en España. Escribe texto 100% original, natural, sin clichés de IA. Evita frases como 'En conclusión', 'Es importante destacar', 'Sumérgete'."},
+                    {"role": "system", "content": "Eres un redactor experto en SEO y consumo en España. Escribe texto 100% original, natural, sin clichés de IA. Evita frases como 'En conclusión', 'Es importante destacar'."},
                     {"role": "user", "content": prompts[tipo]}
                 ],
                 temperature=0.7
@@ -105,16 +106,19 @@ st.markdown("Automatización SEO + AdSense + Qwen AI + WordPress")
 
 # --- Cargar Base de Datos ---
 CSV_PATH = "data/empresas.csv"
-if os.path.exists(CSV_PATH):
-    df = pd.read_csv(CSV_PATH)
-else:
+
+# Crear archivo CSV si no existe
+if not os.path.exists(CSV_PATH):
     df = pd.DataFrame(columns=["nombre", "sector", "telefono_900", "web_oficial", "tiempo_espera_min", "menu_voz_ruta", "sector_relacionado_1", "sector_relacionado_2"])
+    df.to_csv(CSV_PATH, index=False)
+else:
+    df = pd.read_csv(CSV_PATH)
 
 # --- Sidebar ---
 st.sidebar.header("⚙️ Configuración")
 st.sidebar.info("Las claves se cargan desde el archivo `.env`")
 if not os.getenv("OPENROUTER_API_KEY"):
-    st.sidebar.error("⚠️ Falta OPENROUTER_API_KEY en el archivo .env")
+    st.sidebar.error("️ Falta OPENROUTER_API_KEY en el archivo .env")
 else:
     st.sidebar.success("✅ API Key de OpenRouter configurada")
 
@@ -128,7 +132,7 @@ with tab1:
     
     edited_df = st.data_editor(df, num_rows="dynamic", use_container_width=True)
     
-    if st.button("💾 Guardar Cambios en CSV", type="primary"):
+    if st.button(" Guardar Cambios en CSV", type="primary"):
         edited_df.to_csv(CSV_PATH, index=False)
         st.success("✅ Base de datos actualizada correctamente.")
         df = edited_df
@@ -254,7 +258,7 @@ El teléfono de atención al cliente gratuito de **{emp['nombre']}** es el **{em
                 resultado_wp = publisher.publicar(titulo, articulo_final)
                 
                 if resultado_wp['success']:
-                    st.success(f"🎉 ¡Artículo publicado con éxito! [Haz clic aquí para verlo en WordPress]({resultado_wp['url']})")
+                    st.success(f" ¡Artículo publicado con éxito! [Haz clic aquí para verlo en WordPress]({resultado_wp['url']})")
                     st.info("Recuerda: Se ha guardado como 'Borrador'. Revísalo y dale a 'Publicar' en tu panel de WordPress.")
                 else:
                     st.error(f"Error al publicar: {resultado_wp['error']}")
