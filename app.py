@@ -30,6 +30,23 @@ def fecha_espanol():
     return f"{hoy.day} de {meses[hoy.month]} de {hoy.year}"
 
 # ==========================================
+# FUNCIÓN PARA LIMPIAR URL
+# ==========================================
+def limpiar_url(url):
+    """Extrae solo la URL de un enlace markdown o texto"""
+    if not url or pd.isna(url):
+        return ""
+    url = str(url).strip()
+    # Si es un enlace markdown [texto](url), extraer solo la URL
+    match = re.search(r'\[([^\]]+)\]\(([^)]+)\)', url)
+    if match:
+        return match.group(2)
+    # Si ya es una URL limpia, devolverla
+    if url.startswith('http'):
+        return url
+    return url
+
+# ==========================================
 # FUNCIONES DE SCHEMA Y SEO
 # ==========================================
 
@@ -315,7 +332,7 @@ class QwenGenerator:
         menu = empresa.get('menu_voz_ruta', '1,2,3')
         comp1 = empresa.get('sector_relacionado_1', 'competidores')
         comp2 = empresa.get('sector_relacionado_2', 'otras empresas')
-        web = empresa.get('web_oficial', 'su web oficial')
+        web = limpiar_url(empresa.get('web_oficial', 'su web oficial'))
         
         prompts = {
             "experiencia": f"""Escribe un párrafo de 200 palabras en primera persona del plural ('hemos probado', 'nuestro equipo') simulando una verificación real del teléfono {telefono} de {nombre}. 
@@ -420,6 +437,9 @@ Tono: informativo y práctico. Español de España. Usa formato Markdown con neg
         telefono = empresa.get('telefono_900', '1004')
         tiempo_espera = empresa.get('tiempo_espera_min', '5-10')
         menu_voz = empresa.get('menu_voz_ruta', '1,2,3')
+        comp1 = empresa.get('sector_relacionado_1', 'competidores')
+        comp2 = empresa.get('sector_relacionado_2', 'otras empresas')
+        web = limpiar_url(empresa.get('web_oficial', 'su web oficial'))
         
         respaldos = {
             "experiencia": f"""En nuestro equipo de **telefonos-gratuitos.com** hemos probado recientemente el teléfono de atención al cliente de **{nombre}** marcando el **{telefono}**. 
@@ -501,7 +521,7 @@ Si {nombre} no resuelve tu reclamación en un plazo de 2 meses, puedes acudir a 
 
 **Análisis**
 
-{name} ofrece atención 24/7, lo cual es un punto a su favor para usuarios que necesitan ayuda fuera del horario laboral. Sin embargo, el tiempo de espera medio puede resultar algo alto comparado con sus competidores.
+{nombre} ofrece atención 24/7, lo cual es un punto a su favor para usuarios que necesitan ayuda fuera del horario laboral. Sin embargo, el tiempo de espera medio puede resultar algo alto comparado con sus competidores.
 
 {comp1} tiene un horario de atención más limitado, pero compensa con un tiempo de espera medio menor. La valoración refleja la satisfacción de los clientes con la eficacia y rapidez del servicio.
 
@@ -947,8 +967,8 @@ with tab4:
         if pd.isna(horario_sabado) or str(horario_sabado).lower() in ['nan', '', 'consultar web oficial']:
             horario_sabado = "Sábados de 10:00 a 14:00"
         
-        web = emp.get('web_oficial', f"https://www.{emp['nombre'].lower().replace(' ', '')}.es")
-        if pd.isna(web) or str(web).lower() in ['nan', '']:
+        web = limpiar_url(emp.get('web_oficial', f"https://www.{emp['nombre'].lower().replace(' ', '')}.es"))
+        if not web or pd.isna(web) or str(web).lower() in ['nan', '']:
             web = f"https://www.{emp['nombre'].lower().replace(' ', '')}.es"
         
         email = emp.get('email', 'A través del formulario de su web oficial')
