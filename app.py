@@ -386,7 +386,7 @@ Descripción, disponibilidad, enlace a {web}
 ### 📱 WhatsApp Business  
 Número si existe, horario, tipo de consultas que atienden
 
-### 📧 Correo Electrónico
+###  Correo Electrónico
 Email de atención al cliente, tiempo medio de respuesta
 
 ### 📲 App Móvil
@@ -456,7 +456,7 @@ El operador que nos atendió mostró un **trato amable y profesional**, resolvie
 
 **Pasos para hablar con un operador:**
 
-1. 📞 Marca el **{telefono}** desde tu teléfono
+1.  Marca el **{telefono}** desde tu teléfono
 2. ⏳ Espera a que comience la locución inicial (no pulses nada todavía)
 3. 🔢 Pulsa la secuencia: **{menu_voz}**
 4. 🆔 Ten a mano tu DNI o número de cliente (te lo pedirán)
@@ -476,7 +476,7 @@ El operador que nos atendió mostró un **trato amable y profesional**, resolvie
             
             "formas_contacto": f"""Si el teléfono **{telefono}** está saturado o prefieres otros canales, **{nombre}** ofrece múltiples formas de contacto alternativas:
 
-### 💬 Chat en Vivo
+###  Chat en Vivo
 Disponible en la web oficial [{web}]({web}). Suele tener un tiempo de respuesta de 5-10 minutos y está disponible en horario de atención telefónica. Ideal para consultas sencillas sobre facturación o incidencias técnicas menores.
 
 ### 📱 WhatsApp Business
@@ -485,7 +485,7 @@ Disponible en la web oficial [{web}]({web}). Suele tener un tiempo de respuesta 
 ### 📧 Correo Electrónico
 Puedes enviar tu consulta a través del formulario de contacto disponible en su web oficial. El tiempo medio de respuesta es de 24-48 horas laborables. Para reclamaciones formales, usa siempre este canal para tener constancia por escrito.
 
-### 📲 App Móvil
+###  App Móvil
 La aplicación oficial de **{nombre}** está disponible para iOS y Android. Permite gestionar tu cuenta, consultar facturas, realizar pagos y contactar con atención al cliente a través de un chat integrado. Es la forma más rápida de resolver consultas sin llamar.
 
 ### 🐦 Redes Sociales
@@ -823,24 +823,143 @@ else:
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "📊 1. Base de Datos",
     "🕷️ 2. Scraping",
-    "🤖 3. Generar Artículo",
-    "🚀 4. Publicar",
-    "🔍 5. Diagnóstico"
+    " 3. Generar Artículo",
+    " 4. Publicar",
+    " 5. Diagnóstico"
 ])
 
 # TAB 1: BASE DE DATOS
 with tab1:
     st.header("Gestión de Empresas")
+    
+    # Mostrar información de la base de datos actual
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("🏢 Total Empresas", len(df))
+    with col2:
+        st.metric(" Con Teléfono", len(df[df['telefono_900'].notna()]) if not df.empty else 0)
+    with col3:
+        st.metric("🌐 Con Web Oficial", len(df[df['web_oficial'].notna()]) if not df.empty else 0)
+    
+    st.divider()
+    
+    # Editor de datos
+    st.subheader("📝 Editar Empresas")
+    st.info("💡 Edita la tabla directamente como si fuera Excel. Los cambios se guardan al pulsar el botón.")
     edited_df = st.data_editor(df, num_rows="dynamic", use_container_width=True, key="data_editor_empresas")
     
-    if st.button("💾 Guardar Cambios", type="primary", key="btn_guardar_csv"):
-        edited_df.to_csv(CSV_PATH, index=False)
-        st.success("✅ Base de datos actualizada")
-        df = edited_df
+    # Botones de acción
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        if st.button("💾 Guardar Cambios", type="primary", use_container_width=True, key="btn_guardar_csv"):
+            edited_df.to_csv(CSV_PATH, index=False)
+            st.success("✅ Base de datos actualizada correctamente")
+            df = edited_df
+            st.rerun()
+    
+    with col2:
+        # Botón de borrado con confirmación en dos pasos
+        if 'confirmar_borrado' not in st.session_state:
+            st.session_state.confirmar_borrado = False
+        
+        if not st.session_state.confirmar_borrado:
+            if st.button("🗑️ Borrar Base de Datos", use_container_width=True, key="btn_borrar_csv"):
+                st.session_state.confirmar_borrado = True
+                st.rerun()
+        else:
+            st.warning("⚠️ **¿Estás seguro?** Esta acción NO se puede deshacer.")
+            col_confirm, col_cancel = st.columns(2)
+            with col_confirm:
+                if st.button("✅ Sí, borrar todo", type="primary", use_container_width=True, key="btn_confirmar_borrado"):
+                    try:
+                        # Borrar el archivo CSV
+                        if os.path.exists(CSV_PATH):
+                            os.remove(CSV_PATH)
+                        
+                        # Crear nuevo DataFrame vacío con las columnas correctas
+                        df_vacio = pd.DataFrame(columns=[
+                            "nombre", "sector", "telefono_900", "telefono_fijo",
+                            "horario_lunes_viernes", "horario_sabado", "web_oficial",
+                            "email", "whatsapp", "direccion_postal", "menu_voz_ruta",
+                            "tiempo_espera_min", "sector_relacionado_1", "sector_relacionado_2",
+                            "ultima_verificacion"
+                        ])
+                        df_vacio.to_csv(CSV_PATH, index=False)
+                        
+                        # Resetear estado
+                        st.session_state.confirmar_borrado = False
+                        st.session_state.pop('empresa_actual', None)
+                        st.session_state.pop('secciones_articulo', None)
+                        
+                        st.success("🗑️ Base de datos borrada correctamente. Se ha creado una nueva vacía.")
+                        st.balloons()
+                        
+                        # Recargar
+                        df = df_vacio
+                        import time
+                        time.sleep(1)
+                        st.rerun()
+                        
+                    except Exception as e:
+                        st.error(f"❌ Error al borrar: {str(e)}")
+                        st.session_state.confirmar_borrado = False
+            
+            with col_cancel:
+                if st.button("❌ Cancelar", use_container_width=True, key="btn_cancelar_borrado"):
+                    st.session_state.confirmar_borrado = False
+                    st.rerun()
+    
+    # Botón de exportar backup
+    st.divider()
+    if st.button("📥 Exportar Backup CSV", use_container_width=True, key="btn_exportar_backup"):
+        try:
+            backup_path = f"data/empresas_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+            df.to_csv(backup_path, index=False)
+            st.success(f"✅ Backup creado: `{backup_path}`")
+            
+            # Ofrecer descarga
+            with open(backup_path, 'rb') as f:
+                st.download_button(
+                    label="️ Descargar Backup",
+                    data=f,
+                    file_name=os.path.basename(backup_path),
+                    mime='text/csv',
+                    key="btn_descargar_backup"
+                )
+        except Exception as e:
+            st.error(f"❌ Error al crear backup: {str(e)}")
+    
+    # Información adicional
+    st.divider()
+    with st.expander("ℹ️ Información sobre la base de datos"):
+        st.markdown(f"""
+        **Ubicación del archivo:** `{CSV_PATH}`
+        
+        **Columnas incluidas:**
+        - `nombre`: Nombre de la empresa
+        - `sector`: Sector al que pertenece
+        - `telefono_900`: Teléfono gratuito (900, 901, 1004, etc.)
+        - `telefono_fijo`: Teléfono fijo alternativo
+        - `horario_lunes_viernes`: Horario de atención L-V
+        - `horario_sabado`: Horario de atención sábados
+        - `web_oficial`: URL de la web oficial
+        - `email`: Email de contacto
+        - `whatsapp`: Número de WhatsApp
+        - `direccion_postal`: Dirección postal
+        - `menu_voz_ruta`: Secuencia del menú de voz
+        - `tiempo_espera_min`: Tiempo medio de espera
+        - `sector_relacionado_1`: Empresa competidora 1
+        - `sector_relacionado_2`: Empresa competidora 2
+        - `ultima_verificacion`: Fecha de última verificación
+        
+        **️ Cuidado:** Al borrar la base de datos, se perderán TODAS las empresas. 
+        Esta acción no se puede deshacer.
+        """)
 
 # TAB 2: SCRAPING
 with tab2:
-    st.header("🕷️ Extracción Inteligente")
+    st.header("️ Extracción Inteligente")
     
     modo = st.radio(
         "Método:",
@@ -914,7 +1033,7 @@ with tab3:
                 secciones = {}
                 progress = st.progress(0)
                 
-                st.write("📝 Experiencia...")
+                st.write(" Experiencia...")
                 secciones['experiencia'] = ai.generar(datos_empresa, "experiencia")
                 progress.progress(20)
                 
@@ -1004,7 +1123,7 @@ Si necesitas contactar con {emp['nombre']} para resolver dudas sobre facturació
 
 ---
 
-## 🕐 Horarios de Atención al Cliente
+##  Horarios de Atención al Cliente
 
 **Horario habitual:**
 - **Lunes a Viernes:** {horario}
@@ -1021,7 +1140,7 @@ Si necesitas contactar con {emp['nombre']} para resolver dudas sobre facturació
 
 ---
 
-## 📧 Todas las Formas de Contactar
+##  Todas las Formas de Contactar
 
 {secciones.get('formas_contacto', '')}
 
@@ -1076,7 +1195,7 @@ Presenta reclamación ante OMIC o Consumo de tu comunidad.
 
 ---
 
-## 🏢 Sobre {emp['nombre']}
+##  Sobre {emp['nombre']}
 
 {emp['nombre']} es una empresa líder en {emp.get('sector', 'servicios')} en España. Su sede se encuentra en {direccion}.
 
@@ -1092,7 +1211,7 @@ Según Trustpilot, OCU y Google Reviews:
 
 ---
 
-## ❓ Preguntas Frecuentes
+##  Preguntas Frecuentes
 
 ### ¿El {telefono} es gratis?
 Sí, {'los 900 son gratuitos desde fijo y móvil.' if len(telefono_limpio) == 9 else f'el {telefono} es gratuito desde móviles de {emp["nombre"]}.'}
@@ -1140,7 +1259,7 @@ Contacta con {emp['nombre']} en el {telefono}. Si no lo resuelven en 30 días, r
         articulo_con_toc = generar_tabla_contenidos(articulo_base) + articulo_base
         articulo_final = generar_enlaces_internos(articulo_con_toc, df, emp['nombre'])
         
-        st.markdown("### 📝 Vista Previa")
+        st.markdown("###  Vista Previa")
         with st.expander("👁️ Ver artículo completo"):
             st.markdown(articulo_final)
         
@@ -1153,7 +1272,7 @@ Contacta con {emp['nombre']} en el {telefono}. Si no lo resuelven en 30 días, r
         num_h2 = articulo_final.count('\n## ')
         
         col1, col2, col3, col4 = st.columns(4)
-        col1.metric("📊 Palabras", f"{num_palabras}")
+        col1.metric(" Palabras", f"{num_palabras}")
         col2.metric("📑 Secciones", f"{num_h2}")
         col3.metric("⭐ Puntuación", f"{resultado_val['puntuacion']}/100")
         col4.metric("✅ Aprobado", "SÍ" if resultado_val['aprobado'] else "NO")
@@ -1216,7 +1335,7 @@ with tab5:
     
     st.subheader("🧪 Probar Conexión WordPress")
     
-    if st.button("🔍 Probar", key="btn_test_wp"):
+    if st.button(" Probar", key="btn_test_wp"):
         url_base = os.getenv('WP_URL', '').rstrip('/')
         user = os.getenv('WP_USER')
         pwd = os.getenv('WP_APP_PASSWORD')
@@ -1249,7 +1368,7 @@ with tab5:
                 st.error("❌ Sin permisos o IP bloqueada")
                 st.warning("Ejecuta en SSH: fail2ban-client unban --all")
         except Exception as e:
-            st.error(f"❌ {str(e)}")
+            st.error(f" {str(e)}")
     
     st.divider()
     st.subheader("📊 Estadísticas")
