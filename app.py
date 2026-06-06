@@ -84,13 +84,9 @@ def markdown_a_html(texto):
         if len(lineas) < 2:
             return tabla_texto
         
-        # Extraer encabezados
         headers = [h.strip() for h in lineas[0].split('|') if h.strip()]
-        
-        # Saltar la línea de separación (---)
         data_lines = [l for l in lineas[1:] if not re.match(r'^[\|\s\-:]+$', l)]
         
-        # Construir tabla HTML
         html = '<table>\n<thead>\n<tr>\n'
         for h in headers:
             html += f'<th>{h}</th>\n'
@@ -101,7 +97,6 @@ def markdown_a_html(texto):
             if len(cols) == len(headers):
                 html += '<tr>\n'
                 for col in cols:
-                    # Convertir enlaces dentro de celdas
                     col = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', r'<a href="\2">\1</a>', col)
                     col = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', col)
                     html += f'<td>{col}</td>\n'
@@ -110,7 +105,6 @@ def markdown_a_html(texto):
         html += '</tbody>\n</table>'
         return html
     
-    # Patrón para tablas
     tabla_pattern = r'(\|[^\n]+\|(?:\n\|[^\n]+\|)+)'
     texto = re.sub(tabla_pattern, convertir_tabla, texto)
     
@@ -171,11 +165,9 @@ def markdown_a_html(texto):
         p = p.strip()
         if not p:
             continue
-        # No envolver en <p> si ya es un bloque HTML
         if p.startswith('<h') or p.startswith('<ul') or p.startswith('<ol') or p.startswith('<table') or p.startswith('<hr') or p.startswith('<div'):
             resultado.append(p)
         else:
-            # Convertir saltos de línea simples a <br>
             p = re.sub(r'\n', '<br>', p)
             resultado.append(f'<p>{p}</p>')
     
@@ -200,7 +192,7 @@ def generar_schema_faq(articulo_markdown, nombre_empresa):
     faq_section = ""
     
     if "## ❓ Preguntas Frecuentes" in articulo_markdown:
-        inicio = articulo_markdown.find("##  Preguntas Frecuentes")
+        inicio = articulo_markdown.find("## ❓ Preguntas Frecuentes")
     elif "## Preguntas Frecuentes" in articulo_markdown:
         inicio = articulo_markdown.find("## Preguntas Frecuentes")
     else:
@@ -379,33 +371,6 @@ def generar_schema_contact_point(empresa, articulo_markdown):
     }
 
 
-def generar_tabla_contenidos(articulo_markdown):
-    """Genera una tabla de contenidos automática"""
-    lineas = articulo_markdown.split('\n')
-    secciones = []
-    
-    for linea in lineas:
-        if linea.startswith('## '):
-            titulo = linea.replace('## ', '').strip()
-            anchor = titulo.lower()
-            anchor = re.sub(r'[^\w\s-]', '', anchor)
-            anchor = re.sub(r'[\s]+', '-', anchor)
-            secciones.append({'titulo': titulo, 'anchor': anchor})
-    
-    if not secciones:
-        return ""
-    
-    toc = "## 📑 Índice de Contenidos\n\n"
-    contador = 1
-    for seccion in secciones:
-        if 'Índice' not in seccion['titulo'] and 'Artículos Relacionados' not in seccion['titulo']:
-            toc += f"{contador}. [{seccion['titulo']}](#{seccion['anchor']})\n"
-            contador += 1
-    
-    toc += "\n---\n\n"
-    return toc
-
-
 def generar_enlaces_internos(articulo_markdown, df_empresas, empresa_actual):
     """Añade enlaces internos evitando dobles enlaces"""
     articulo_modificado = articulo_markdown
@@ -456,7 +421,7 @@ def generar_meta_descripcion(empresa):
         horario = "Consultar web"
     
     plantillas = [
-        f"☎️ Teléfono gratuito de {nombre}: {telefono}. Horario: {horario}. ✅ Verificado hoy. Guía completa: menú de voz, alternativas y consejos para reclamar.",
+        f"️ Teléfono gratuito de {nombre}: {telefono}. Horario: {horario}. ✅ Verificado hoy. Guía completa: menú de voz, alternativas y consejos para reclamar.",
         f"¿Buscas el teléfono de {nombre}? 📞 {telefono} (GRATIS). Horario {horario}. Te explicamos cómo saltarte el menú de voz y hablar rápido con un operador.",
         f"{nombre} teléfono de atención al cliente: {telefono} ✓ Gratis ✓ Horario: {horario} ✓ Guía paso a paso para contactar sin esperas.",
     ]
@@ -489,7 +454,6 @@ def crear_csv_wpallimport(lista_articulos):
             contenido_completo += art['schema_faq_html'] + "\n\n"
         contenido_completo += contenido_html
         
-        # Generar categorías y tags
         sector = art.get('sector', 'General')
         categorias = f"{sector}|Atención al Cliente|Teléfonos Gratuitos"
         tags = f"teléfono gratuito, {art['empresa']}, {art['telefono']}, atención al cliente, {sector}"
@@ -670,14 +634,14 @@ El operador que nos atendió mostró un **trato amable y profesional**, resolvie
 **Pasos para hablar con un operador:**
 
 1. 📞 Marca el **{telefono}** desde tu teléfono
-2. ⏳ Espera a que comience la locución inicial (no pulses nada todavía)
+2.  Espera a que comience la locución inicial (no pulses nada todavía)
 3. 🔢 Pulsa la secuencia: **{menu_voz}**
 4. 🆔 Ten a mano tu DNI o número de cliente (te lo pedirán)
-5. ️ Espera en la cola (tiempo medio: {tiempo_espera} minutos)
+5. ⏱️ Espera en la cola (tiempo medio: {tiempo_espera} minutos)
 
-**️ Advertencias importantes:**
+**⚠️ Advertencias importantes:**
 
-- ❌ NO pulses la opción de "Nuevos clientes" o "Contratación", te redirigirá al departamento comercial
+-  NO pulses la opción de "Nuevos clientes" o "Contratación", te redirigirá al departamento comercial
 - ❌ NO pulses opciones de "Ofertas especiales", son grabaciones publicitarias
 - ✅ Si te pierdes, pulsa 0 para volver al menú principal
 
@@ -704,7 +668,7 @@ La aplicación oficial de **{nombre}** está disponible para iOS y Android. Perm
 ### 🐦 Redes Sociales
 {nombre} mantiene perfiles activos en Twitter/X, Facebook e Instagram. El equipo de redes sociales suele responder en un plazo de 2-4 horas en horario laboral. Es útil para consultas públicas o quejas visibles.
 
-###  Tiendas Físicas
+### 🏪 Tiendas Físicas
 Puedes localizar la tienda más cercana de {nombre} a través de su web oficial en la sección "Localizador de tiendas". La atención presencial es ideal para trámites complejos como portabilidad, contratación de nuevos servicios o resolución de incidencias técnicas.""",
 
             "consejos": f"""1. **Documenta todo por escrito**
@@ -923,7 +887,7 @@ class ValidadorAdSense:
         if len(texto.split()) < 500:
             errores.append("❌ Menos de 500 palabras")
         if "hemos" not in texto.lower() and "probado" not in texto.lower():
-            errores.append("❌ Falta experiencia en primera persona")
+            errores.append(" Falta experiencia en primera persona")
         if empresa['nombre'].lower() not in texto.lower():
             errores.append("❌ Nombre de empresa no aparece")
         
@@ -976,7 +940,7 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "🕷️ 2. Scraping",
     "🤖 3. Generar Artículo",
     "🚀 4. Exportar WP All Import",
-    " 5. Diagnóstico"
+    "🔍 5. Diagnóstico"
 ])
 
 # TAB 1: BASE DE DATOS
@@ -985,11 +949,11 @@ with tab1:
     
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.metric("🏢 Total Empresas", len(df))
+        st.metric(" Total Empresas", len(df))
     with col2:
-        st.metric(" Con Teléfono", len(df[df['telefono_900'].notna()]) if not df.empty else 0)
+        st.metric("📞 Con Teléfono", len(df[df['telefono_900'].notna()]) if not df.empty else 0)
     with col3:
-        st.metric("🌐 Con Web Oficial", len(df[df['web_oficial'].notna()]) if not df.empty else 0)
+        st.metric(" Con Web Oficial", len(df[df['web_oficial'].notna()]) if not df.empty else 0)
     
     st.divider()
     
@@ -1015,7 +979,7 @@ with tab1:
                 st.session_state.confirmar_borrado = True
                 st.rerun()
         else:
-            st.warning("️ **¿Estás seguro?** Esta acción NO se puede deshacer.")
+            st.warning("⚠️ **¿Estás seguro?** Esta acción NO se puede deshacer.")
             col_confirm, col_cancel = st.columns(2)
             with col_confirm:
                 if st.button("✅ Sí, borrar todo", type="primary", use_container_width=True, key="btn_confirmar_borrado"):
@@ -1044,11 +1008,11 @@ with tab1:
                         st.rerun()
                         
                     except Exception as e:
-                        st.error(f" Error al borrar: {str(e)}")
+                        st.error(f"❌ Error al borrar: {str(e)}")
                         st.session_state.confirmar_borrado = False
             
             with col_cancel:
-                if st.button(" Cancelar", use_container_width=True, key="btn_cancelar_borrado"):
+                if st.button("❌ Cancelar", use_container_width=True, key="btn_cancelar_borrado"):
                     st.session_state.confirmar_borrado = False
                     st.rerun()
     
@@ -1116,7 +1080,7 @@ with tab2:
         st.markdown("**Instrucciones:** Ctrl+U → Ctrl+A → Ctrl+C → Pega abajo")
         html_input = st.text_area("HTML:", height=200, key="html_manual_asistido")
         
-        if st.button("🔍 Extraer", type="primary", key="btn_extraer_html"):
+        if st.button(" Extraer", type="primary", key="btn_extraer_html"):
             if html_input:
                 with st.spinner("Analizando..."):
                     extractor = HTMLExtractor()
@@ -1129,7 +1093,7 @@ with tab2:
 
 # TAB 3: GENERADOR CON IA
 with tab3:
-    st.header("🤖 Generador de Artículos (1500+ palabras)")
+    st.header(" Generador de Artículos (1500+ palabras)")
     
     if df.empty or df['nombre'].dropna().empty:
         st.warning("Añade empresas en 'Base de Datos'")
@@ -1159,7 +1123,7 @@ with tab3:
                 secciones['consejos'] = ai.generar(datos_empresa, "consejos")
                 progress.progress(80)
                 
-                st.write("⚖️ Comparativa...")
+                st.write("️ Comparativa...")
                 secciones['comparativa'] = ai.generar(datos_empresa, "comparativa")
                 progress.progress(100)
                 
@@ -1211,15 +1175,14 @@ with tab4:
         
         fecha_verificacion = fecha_espanol()
         
-        articulo_base = f"""# Teléfono Gratuito de {emp['nombre']} {datetime.now().year} - Atención al Cliente Gratis
-
-**Última verificación:** {fecha_verificacion} ✅  
+        # CAMBIO 2: Eliminada la línea H1 duplicada (WordPress ya muestra el título del post)
+        articulo_base = f"""**Última verificación:** {fecha_verificacion} ✅  
 **Autor:** Equipo Editorial de telefonos-gratuitos.com  
 **Tiempo de lectura:** 7 minutos
 
 ---
 
-## 📞 El Teléfono de {emp['nombre']}
+##  El Teléfono de {emp['nombre']}
 
 {intro_telefono} {nota_telefono}
 
@@ -1241,17 +1204,17 @@ Si necesitas contactar con {emp['nombre']} para resolver dudas sobre facturació
 - **Sábados:** {horario_sabado}
 - **Domingos y festivos:** Generalmente cerrado
 
-**💡 Consejo:** Los mejores momentos para llamar son martes, miércoles y jueves entre las 10:00 y las 12:00.
+** Consejo:** Los mejores momentos para llamar son martes, miércoles y jueves entre las 10:00 y las 12:00.
 
 ---
 
-## 🗺️ Cómo Saltarse el Menú de Voz
+## ️ Cómo Saltarse el Menú de Voz
 
 {secciones.get('menu_voz', '')}
 
 ---
 
-##  Todas las Formas de Contactar
+## 📧 Todas las Formas de Contactar
 
 {secciones.get('formas_contacto', '')}
 
@@ -1268,13 +1231,13 @@ Si necesitas contactar con {emp['nombre']} para resolver dudas sobre facturació
 
 ---
 
-## 📝 Nuestra Experiencia
+##  Nuestra Experiencia
 
 {secciones.get('experiencia', '')}
 
 ---
 
-## ⚖️ Derechos del Consumidor
+## ️ Derechos del Consumidor
 
 1. **Derecho a un número gratuito**
 2. **Derecho a ser atendido en tiempo razonable**
@@ -1300,13 +1263,13 @@ Presenta reclamación ante OMIC o Consumo de tu comunidad.
 
 ---
 
-##  Consejos
+## 💡 Consejos
 
 {secciones.get('consejos', '')}
 
 ---
 
-## 🏢 Sobre {emp['nombre']}
+##  Sobre {emp['nombre']}
 
 {emp['nombre']} es una empresa líder en {emp.get('sector', 'servicios')} en España. Su sede se encuentra en {direccion}.
 
@@ -1322,7 +1285,7 @@ Según Trustpilot, OCU y Google Reviews:
 
 ---
 
-## ❓ Preguntas Frecuentes
+##  Preguntas Frecuentes
 
 ### ¿El {telefono} es gratis?
 Sí, {'los 900 son gratuitos desde fijo y móvil.' if len(telefono_limpio) == 9 else f'el {telefono} es gratuito desde móviles de {emp["nombre"]}.'}
@@ -1367,8 +1330,9 @@ Contacta con {emp['nombre']} en el {telefono}. Si no lo resuelven en 30 días, r
 *¿Te ha sido útil? Compártelo para ayudar a otros usuarios. Si el teléfono ha cambiado, [avísanos](mailto:info@telefonos-gratuitos.com).*
 """
         
-        articulo_con_toc = generar_tabla_contenidos(articulo_base) + articulo_base
-        articulo_final = generar_enlaces_internos(articulo_con_toc, df, emp['nombre'])
+        # CAMBIO 1: Eliminada la tabla de contenidos (TOC)
+        # WordPress/Divi ya puede generar su propio índice automáticamente si lo necesitas
+        articulo_final = generar_enlaces_internos(articulo_base, df, emp['nombre'])
         
         schema_faq = generar_schema_faq(articulo_final, emp['nombre'])
         schema_contact = generar_schema_contact_point(emp, articulo_final)
@@ -1392,11 +1356,11 @@ Contacta con {emp['nombre']} en el {telefono}. Si no lo resuelven en 30 días, r
         col4.metric("✅ Aprobado", "SÍ" if resultado_val['aprobado'] else "NO")
         
         if not resultado_val['aprobado']:
-            st.error("⚠️ Necesita mejoras:\n" + "\n".join(resultado_val['errores']))
+            st.error("️ Necesita mejoras:\n" + "\n".join(resultado_val['errores']))
         
         st.divider()
         
-        st.subheader("📦 Exportar para WP All Import Pro")
+        st.subheader(" Exportar para WP All Import Pro")
         st.info("💡 Genera un CSV optimizado para importar artículos masivamente a WordPress.")
         
         slug = generar_slug(emp['nombre'])
@@ -1422,10 +1386,10 @@ Contacta con {emp['nombre']} en el {telefono}. Si no lo resuelven en 30 días, r
         
         col1, col2 = st.columns(2)
         with col1:
-            if st.button(" Añadir al Historial", type="primary", use_container_width=True, key="btn_add_historial", disabled=not resultado_val['aprobado']):
+            if st.button("➕ Añadir al Historial", type="primary", use_container_width=True, key="btn_add_historial", disabled=not resultado_val['aprobado']):
                 existe = any(a['empresa'] == emp['nombre'] for a in st.session_state.historial_articulos)
                 if existe:
-                    st.warning(f"️ Ya existe un artículo de **{emp['nombre']}**. Se actualizará.")
+                    st.warning(f"⚠️ Ya existe un artículo de **{emp['nombre']}**. Se actualizará.")
                     st.session_state.historial_articulos = [a for a in st.session_state.historial_articulos if a['empresa'] != emp['nombre']]
                 
                 st.session_state.historial_articulos.append(articulo_para_historial)
@@ -1436,12 +1400,12 @@ Contacta con {emp['nombre']} en el {telefono}. Si no lo resuelven en 30 días, r
             if st.session_state.historial_articulos:
                 if st.button("🗑️ Limpiar Historial", use_container_width=True, key="btn_limpiar_historial"):
                     st.session_state.historial_articulos = []
-                    st.success("️ Historial limpiado")
+                    st.success("🗑️ Historial limpiado")
                     st.rerun()
         
         if st.session_state.historial_articulos:
             st.divider()
-            st.subheader(f"📚 Historial ({len(st.session_state.historial_articulos)} artículos)")
+            st.subheader(f" Historial ({len(st.session_state.historial_articulos)} artículos)")
             
             df_historial = pd.DataFrame([{
                 'ID': a['id'],
@@ -1455,7 +1419,7 @@ Contacta con {emp['nombre']} en el {telefono}. Si no lo resuelven en 30 días, r
             st.dataframe(df_historial, use_container_width=True, hide_index=True)
             
             st.divider()
-            st.subheader("️ Descargar CSV")
+            st.subheader("⬇️ Descargar CSV")
             
             col1, col2 = st.columns(2)
             
@@ -1475,7 +1439,7 @@ Contacta con {emp['nombre']} en el {telefono}. Si no lo resuelven en 30 días, r
                 csv_todos = crear_csv_wpallimport(st.session_state.historial_articulos)
                 if csv_todos:
                     st.download_button(
-                        label=f" TODOS ({len(st.session_state.historial_articulos)})",
+                        label=f"📥 TODOS ({len(st.session_state.historial_articulos)})",
                         data=csv_todos,
                         file_name=f"wp_import_completo_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
                         mime='text/csv',
@@ -1517,13 +1481,13 @@ Contacta con {emp['nombre']} en el {telefono}. Si no lo resuelven en 30 días, r
 with tab5:
     st.header("🔍 Diagnóstico")
     
-    st.subheader(" Estadísticas")
+    st.subheader("📊 Estadísticas")
     
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("🏢 Empresas", len(df))
     col2.metric("📞 Con teléfono", len(df[df['telefono_900'].notna()]) if not df.empty else 0)
     col3.metric("🌐 Con web", len(df[df['web_oficial'].notna()]) if not df.empty else 0)
-    col4.metric("📚 Historial", len(st.session_state.historial_articulos))
+    col4.metric(" Historial", len(st.session_state.historial_articulos))
     
     st.divider()
     st.subheader("📅 Fecha")
