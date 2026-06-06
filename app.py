@@ -63,8 +63,8 @@ def limpiar_email(email):
 # FUNCIÓN PARA GENERAR SLUG
 # ==========================================
 def generar_slug(nombre_empresa):
-    """Genera un slug SEO-friendly para WordPress"""
-    slug = f"telefono-gratuito-{nombre_empresa.lower()}"
+    """Genera un slug SEO-friendly corto para WordPress"""
+    slug = f"telefono-gratuito-de-{nombre_empresa.lower()}"
     slug = re.sub(r'[^\w\s-]', '', slug)
     slug = re.sub(r'[\s]+', '-', slug)
     slug = re.sub(r'-+', '-', slug)
