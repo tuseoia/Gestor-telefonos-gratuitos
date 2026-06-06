@@ -38,11 +38,9 @@ def limpiar_url(url):
     if not url or pd.isna(url):
         return ""
     url = str(url).strip()
-    # Si es un enlace markdown [texto](url), extraer solo la URL
     match = re.search(r'\[([^\]]+)\]\(([^)]+)\)', url)
     if match:
         return match.group(2)
-    # Si ya es una URL limpia, devolverla
     if url.startswith('http'):
         return url
     return url
@@ -55,10 +53,8 @@ def limpiar_email(email):
     if not email or pd.isna(email):
         return ""
     email = str(email).strip()
-    # Eliminar "mailto:" si existe
     if email.lower().startswith('mailto:'):
         email = email[7:]
-    # Verificar si es un email válido
     if '@' in email and '.' in email:
         return email
     return ""
@@ -75,6 +71,127 @@ def generar_slug(nombre_empresa):
     return slug.strip('-')
 
 # ==========================================
+# CONVERSIÓN MARKDOWN A HTML
+# ==========================================
+def markdown_a_html(texto):
+    """Convierte Markdown a HTML completo para WordPress"""
+    
+    # 1. Convertir tablas Markdown a HTML
+    def convertir_tabla(match):
+        tabla_texto = match.group(0)
+        lineas = [l.strip() for l in tabla_texto.split('\n') if l.strip()]
+        
+        if len(lineas) < 2:
+            return tabla_texto
+        
+        # Extraer encabezados
+        headers = [h.strip() for h in lineas[0].split('|') if h.strip()]
+        
+        # Saltar la línea de separación (---)
+        data_lines = [l for l in lineas[1:] if not re.match(r'^[\|\s\-:]+$', l)]
+        
+        # Construir tabla HTML
+        html = '<table>\n<thead>\n<tr>\n'
+        for h in headers:
+            html += f'<th>{h}</th>\n'
+        html += '</tr>\n</thead>\n<tbody>\n'
+        
+        for linea in data_lines:
+            cols = [c.strip() for c in linea.split('|') if c.strip()]
+            if len(cols) == len(headers):
+                html += '<tr>\n'
+                for col in cols:
+                    # Convertir enlaces dentro de celdas
+                    col = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', r'<a href="\2">\1</a>', col)
+                    col = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', col)
+                    html += f'<td>{col}</td>\n'
+                html += '</tr>\n'
+        
+        html += '</tbody>\n</table>'
+        return html
+    
+    # Patrón para tablas
+    tabla_pattern = r'(\|[^\n]+\|(?:\n\|[^\n]+\|)+)'
+    texto = re.sub(tabla_pattern, convertir_tabla, texto)
+    
+    # 2. Convertir encabezados
+    texto = re.sub(r'^#### (.+)$', r'<h4>\1</h4>', texto, flags=re.MULTILINE)
+    texto = re.sub(r'^### (.+)$', r'<h3>\1</h3>', texto, flags=re.MULTILINE)
+    texto = re.sub(r'^## (.+)$', r'<h2>\1</h2>', texto, flags=re.MULTILINE)
+    texto = re.sub(r'^# (.+)$', r'<h1>\1</h1>', texto, flags=re.MULTILINE)
+    
+    # 3. Convertir negritas y cursivas
+    texto = re.sub(r'\*\*\*(.+?)\*\*\*', r'<strong><em>\1</em></strong>', texto)
+    texto = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', texto)
+    texto = re.sub(r'\*(.+?)\*', r'<em>\1</em>', texto)
+    
+    # 4. Convertir enlaces
+    texto = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', r'<a href="\2">\1</a>', texto)
+    
+    # 5. Convertir separadores horizontales
+    texto = re.sub(r'^---$', '<hr>', texto, flags=re.MULTILINE)
+    texto = re.sub(r'^\*\*\*$', '<hr>', texto, flags=re.MULTILINE)
+    
+    # 6. Convertir listas no ordenadas
+    def convertir_lista_no_ordenada(match):
+        items = match.group(0).split('\n')
+        html = '<ul>\n'
+        for item in items:
+            item = item.strip()
+            if item.startswith('- ') or item.startswith('* '):
+                contenido = item[2:]
+                contenido = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', contenido)
+                contenido = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', r'<a href="\2">\1</a>', contenido)
+                html += f'<li>{contenido}</li>\n'
+        html += '</ul>'
+        return html
+    
+    texto = re.sub(r'(?:^- .+\n?)+', convertir_lista_no_ordenada, texto, flags=re.MULTILINE)
+    
+    # 7. Convertir listas ordenadas
+    def convertir_lista_ordenada(match):
+        items = match.group(0).split('\n')
+        html = '<ol>\n'
+        for item in items:
+            item = item.strip()
+            if re.match(r'^\d+\.\s', item):
+                contenido = re.sub(r'^\d+\.\s', '', item)
+                contenido = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', contenido)
+                contenido = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', r'<a href="\2">\1</a>', contenido)
+                html += f'<li>{contenido}</li>\n'
+        html += '</ol>'
+        return html
+    
+    texto = re.sub(r'(?:^\d+\. .+\n?)+', convertir_lista_ordenada, texto, flags=re.MULTILINE)
+    
+    # 8. Convertir párrafos
+    parrafos = texto.split('\n\n')
+    resultado = []
+    for p in parrafos:
+        p = p.strip()
+        if not p:
+            continue
+        # No envolver en <p> si ya es un bloque HTML
+        if p.startswith('<h') or p.startswith('<ul') or p.startswith('<ol') or p.startswith('<table') or p.startswith('<hr') or p.startswith('<div'):
+            resultado.append(p)
+        else:
+            # Convertir saltos de línea simples a <br>
+            p = re.sub(r'\n', '<br>', p)
+            resultado.append(f'<p>{p}</p>')
+    
+    texto = '\n\n'.join(resultado)
+    
+    # 9. Limpiar HTML mal formado
+    texto = re.sub(r'<p>\s*(<h[1-6]>.*?</h[1-6]>)\s*</p>', r'\1', texto)
+    texto = re.sub(r'<p>\s*(<ul>.*?</ul>)\s*</p>', r'\1', texto, flags=re.DOTALL)
+    texto = re.sub(r'<p>\s*(<ol>.*?</ol>)\s*</p>', r'\1', texto, flags=re.DOTALL)
+    texto = re.sub(r'<p>\s*(<table>.*?</table>)\s*</p>', r'\1', texto, flags=re.DOTALL)
+    texto = re.sub(r'<p>\s*<hr>\s*</p>', '<hr>', texto)
+    texto = re.sub(r'<p>\s*</p>', '', texto)
+    
+    return texto
+
+# ==========================================
 # FUNCIONES DE SCHEMA Y SEO
 # ==========================================
 
@@ -82,9 +199,8 @@ def generar_schema_faq(articulo_markdown, nombre_empresa):
     """Extrae las FAQ del artículo y genera el Schema.org FAQPage"""
     faq_section = ""
     
-    # FIX: Buscar con o sin emoji
     if "## ❓ Preguntas Frecuentes" in articulo_markdown:
-        inicio = articulo_markdown.find("## ❓ Preguntas Frecuentes")
+        inicio = articulo_markdown.find("##  Preguntas Frecuentes")
     elif "## Preguntas Frecuentes" in articulo_markdown:
         inicio = articulo_markdown.find("## Preguntas Frecuentes")
     else:
@@ -333,7 +449,6 @@ def generar_meta_descripcion(empresa):
     telefono = empresa.get('telefono_900', '')
     nombre = empresa['nombre']
     
-    # FIX: Manejar valores nan o vacíos del horario
     horario = empresa.get('horario_lunes_viernes', '24h')
     if pd.isna(horario) or str(horario).lower() in ['nan', '', 'consultar web']:
         horario = "24h"
@@ -353,23 +468,26 @@ def generar_meta_descripcion(empresa):
 
 
 # ==========================================
-# FUNCIÓN PARA CREAR CSV PARA WP ALL IMPORT
+# FUNCIÓN PARA CREAR CSV PARA WP ALL IMPORT (CON HTML)
 # ==========================================
 def crear_csv_wpallimport(lista_articulos):
-    """Crea un CSV optimizado para WP All Import Pro"""
+    """Crea un CSV optimizado para WP All Import Pro con HTML"""
     
     if not lista_articulos:
         return None
     
     data = []
     for art in lista_articulos:
+        # Convertir Markdown a HTML
+        contenido_html = markdown_a_html(art['contenido'])
+        
         # Combinar schemas con el contenido
         contenido_completo = ""
         if art.get('schema_contact_html'):
             contenido_completo += art['schema_contact_html'] + "\n\n"
         if art.get('schema_faq_html'):
             contenido_completo += art['schema_faq_html'] + "\n\n"
-        contenido_completo += art['contenido']
+        contenido_completo += contenido_html
         
         # Generar categorías y tags
         sector = art.get('sector', 'General')
@@ -404,7 +522,6 @@ def crear_csv_wpallimport(lista_articulos):
     
     df_csv = pd.DataFrame(data)
     
-    # Convertir a CSV con BOM UTF-8 para compatibilidad
     csv_buffer = io.StringIO()
     df_csv.to_csv(csv_buffer, index=False, encoding='utf-8-sig', sep=',')
     return csv_buffer.getvalue()
@@ -485,7 +602,7 @@ Descripción, disponibilidad, enlace a {web}
 ### 📱 WhatsApp Business  
 Número si existe, horario, tipo de consultas que atienden
 
-### 📧 Correo Electrónico
+###  Correo Electrónico
 Email de atención al cliente, tiempo medio de respuesta
 
 ### 📲 App Móvil
@@ -556,9 +673,9 @@ El operador que nos atendió mostró un **trato amable y profesional**, resolvie
 2. ⏳ Espera a que comience la locución inicial (no pulses nada todavía)
 3. 🔢 Pulsa la secuencia: **{menu_voz}**
 4. 🆔 Ten a mano tu DNI o número de cliente (te lo pedirán)
-5. ⏱️ Espera en la cola (tiempo medio: {tiempo_espera} minutos)
+5. ️ Espera en la cola (tiempo medio: {tiempo_espera} minutos)
 
-**⚠️ Advertencias importantes:**
+**️ Advertencias importantes:**
 
 - ❌ NO pulses la opción de "Nuevos clientes" o "Contratación", te redirigirá al departamento comercial
 - ❌ NO pulses opciones de "Ofertas especiales", son grabaciones publicitarias
@@ -587,7 +704,7 @@ La aplicación oficial de **{nombre}** está disponible para iOS y Android. Perm
 ### 🐦 Redes Sociales
 {nombre} mantiene perfiles activos en Twitter/X, Facebook e Instagram. El equipo de redes sociales suele responder en un plazo de 2-4 horas en horario laboral. Es útil para consultas públicas o quejas visibles.
 
-### 🏪 Tiendas Físicas
+###  Tiendas Físicas
 Puedes localizar la tienda más cercana de {nombre} a través de su web oficial en la sección "Localizador de tiendas". La atención presencial es ideal para trámites complejos como portabilidad, contratación de nuevos servicios o resolución de incidencias técnicas.""",
 
             "consejos": f"""1. **Documenta todo por escrito**
@@ -851,7 +968,6 @@ if not os.path.exists(CSV_PATH):
 else:
     df = pd.read_csv(CSV_PATH)
 
-# Inicializar historial de artículos
 if 'historial_articulos' not in st.session_state:
     st.session_state.historial_articulos = []
 
@@ -860,7 +976,7 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "🕷️ 2. Scraping",
     "🤖 3. Generar Artículo",
     "🚀 4. Exportar WP All Import",
-    "🔍 5. Diagnóstico"
+    " 5. Diagnóstico"
 ])
 
 # TAB 1: BASE DE DATOS
@@ -871,7 +987,7 @@ with tab1:
     with col1:
         st.metric("🏢 Total Empresas", len(df))
     with col2:
-        st.metric("📞 Con Teléfono", len(df[df['telefono_900'].notna()]) if not df.empty else 0)
+        st.metric(" Con Teléfono", len(df[df['telefono_900'].notna()]) if not df.empty else 0)
     with col3:
         st.metric("🌐 Con Web Oficial", len(df[df['web_oficial'].notna()]) if not df.empty else 0)
     
@@ -899,7 +1015,7 @@ with tab1:
                 st.session_state.confirmar_borrado = True
                 st.rerun()
         else:
-            st.warning("⚠️ **¿Estás seguro?** Esta acción NO se puede deshacer.")
+            st.warning("️ **¿Estás seguro?** Esta acción NO se puede deshacer.")
             col_confirm, col_cancel = st.columns(2)
             with col_confirm:
                 if st.button("✅ Sí, borrar todo", type="primary", use_container_width=True, key="btn_confirmar_borrado"):
@@ -928,11 +1044,11 @@ with tab1:
                         st.rerun()
                         
                     except Exception as e:
-                        st.error(f"❌ Error al borrar: {str(e)}")
+                        st.error(f" Error al borrar: {str(e)}")
                         st.session_state.confirmar_borrado = False
             
             with col_cancel:
-                if st.button("❌ Cancelar", use_container_width=True, key="btn_cancelar_borrado"):
+                if st.button(" Cancelar", use_container_width=True, key="btn_cancelar_borrado"):
                     st.session_state.confirmar_borrado = False
                     st.rerun()
     
@@ -949,7 +1065,7 @@ with tab1:
             )
             st.success("✅ Backup listo para descargar")
         except Exception as e:
-            st.error(f"❌ Error: {str(e)}")
+            st.error(f" Error: {str(e)}")
 
 # TAB 2: SCRAPING
 with tab2:
@@ -957,7 +1073,7 @@ with tab2:
     
     modo = st.radio(
         "Método:",
-        ["🔍 Búsqueda Inteligente", "🔄 Scraping Automático", "✋ Manual Asistido"],
+        ["🔍 Búsqueda Inteligente", "🔄 Scraping Automático", " Manual Asistido"],
         horizontal=True,
         key="modo_extraccion_radio"
     )
@@ -965,7 +1081,7 @@ with tab2:
     if modo == "🔍 Búsqueda Inteligente":
         nombre_busqueda = st.text_input("Nombre de la empresa:", key="nombre_busqueda_inteligente")
         
-        if st.button("🔍 Buscar", type="primary", key="btn_buscar_inteligente"):
+        if st.button(" Buscar", type="primary", key="btn_buscar_inteligente"):
             if nombre_busqueda:
                 with st.spinner("Buscando..."):
                     searcher = GoogleSearcher()
@@ -976,12 +1092,12 @@ with tab2:
                         tel_seleccionado = st.selectbox("Selecciona:", resultado['telefonos'], key="sel_tel_inteligente")
                         st.session_state['datos_extraidos'] = {'telefono': tel_seleccionado, 'horario': ""}
                     else:
-                        st.warning("⚠️ No se encontraron teléfonos")
+                        st.warning("️ No se encontraron teléfonos")
     
     elif modo == "🔄 Scraping Automático":
         url = st.text_input("URL:", key="url_scraping_auto")
         
-        if st.button("🔍 Analizar", type="primary", key="btn_analizar_auto"):
+        if st.button(" Analizar", type="primary", key="btn_analizar_auto"):
             if url:
                 with st.spinner("Analizando..."):
                     scraper = SmartScraper()
@@ -1135,7 +1251,7 @@ Si necesitas contactar con {emp['nombre']} para resolver dudas sobre facturació
 
 ---
 
-## 📧 Todas las Formas de Contactar
+##  Todas las Formas de Contactar
 
 {secciones.get('formas_contacto', '')}
 
@@ -1184,7 +1300,7 @@ Presenta reclamación ante OMIC o Consumo de tu comunidad.
 
 ---
 
-## 💡 Consejos
+##  Consejos
 
 {secciones.get('consejos', '')}
 
@@ -1254,7 +1370,6 @@ Contacta con {emp['nombre']} en el {telefono}. Si no lo resuelven en 30 días, r
         articulo_con_toc = generar_tabla_contenidos(articulo_base) + articulo_base
         articulo_final = generar_enlaces_internos(articulo_con_toc, df, emp['nombre'])
         
-        # Generar schemas y metadatos
         schema_faq = generar_schema_faq(articulo_final, emp['nombre'])
         schema_contact = generar_schema_contact_point(emp, articulo_final)
         meta_descripcion = generar_meta_descripcion(emp)
@@ -1264,7 +1379,6 @@ Contacta con {emp['nombre']} en el {telefono}. Si no lo resuelven en 30 días, r
         st.session_state['meta_descripcion'] = meta_descripcion
         st.session_state['articulo_final'] = articulo_final
         
-        # Validación
         validador = ValidadorAdSense()
         resultado_val = validador.validar(articulo_final, emp)
         
@@ -1282,7 +1396,6 @@ Contacta con {emp['nombre']} en el {telefono}. Si no lo resuelven en 30 días, r
         
         st.divider()
         
-        # SECCIÓN DE EXPORTACIÓN PARA WP ALL IMPORT
         st.subheader("📦 Exportar para WP All Import Pro")
         st.info("💡 Genera un CSV optimizado para importar artículos masivamente a WordPress.")
         
@@ -1309,10 +1422,10 @@ Contacta con {emp['nombre']} en el {telefono}. Si no lo resuelven en 30 días, r
         
         col1, col2 = st.columns(2)
         with col1:
-            if st.button("➕ Añadir al Historial", type="primary", use_container_width=True, key="btn_add_historial", disabled=not resultado_val['aprobado']):
+            if st.button(" Añadir al Historial", type="primary", use_container_width=True, key="btn_add_historial", disabled=not resultado_val['aprobado']):
                 existe = any(a['empresa'] == emp['nombre'] for a in st.session_state.historial_articulos)
                 if existe:
-                    st.warning(f"⚠️ Ya existe un artículo de **{emp['nombre']}**. Se actualizará.")
+                    st.warning(f"️ Ya existe un artículo de **{emp['nombre']}**. Se actualizará.")
                     st.session_state.historial_articulos = [a for a in st.session_state.historial_articulos if a['empresa'] != emp['nombre']]
                 
                 st.session_state.historial_articulos.append(articulo_para_historial)
@@ -1323,7 +1436,7 @@ Contacta con {emp['nombre']} en el {telefono}. Si no lo resuelven en 30 días, r
             if st.session_state.historial_articulos:
                 if st.button("🗑️ Limpiar Historial", use_container_width=True, key="btn_limpiar_historial"):
                     st.session_state.historial_articulos = []
-                    st.success("🗑️ Historial limpiado")
+                    st.success("️ Historial limpiado")
                     st.rerun()
         
         if st.session_state.historial_articulos:
@@ -1342,7 +1455,7 @@ Contacta con {emp['nombre']} en el {telefono}. Si no lo resuelven en 30 días, r
             st.dataframe(df_historial, use_container_width=True, hide_index=True)
             
             st.divider()
-            st.subheader("⬇️ Descargar CSV")
+            st.subheader("️ Descargar CSV")
             
             col1, col2 = st.columns(2)
             
@@ -1362,7 +1475,7 @@ Contacta con {emp['nombre']} en el {telefono}. Si no lo resuelven en 30 días, r
                 csv_todos = crear_csv_wpallimport(st.session_state.historial_articulos)
                 if csv_todos:
                     st.download_button(
-                        label=f"📥 TODOS ({len(st.session_state.historial_articulos)})",
+                        label=f" TODOS ({len(st.session_state.historial_articulos)})",
                         data=csv_todos,
                         file_name=f"wp_import_completo_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
                         mime='text/csv',
@@ -1371,7 +1484,7 @@ Contacta con {emp['nombre']} en el {telefono}. Si no lo resuelven en 30 días, r
                         type="primary"
                     )
             
-            with st.expander("📖 Instrucciones WP All Import"):
+            with st.expander(" Instrucciones WP All Import"):
                 st.markdown("""
                 ### 🚀 Cómo importar a WordPress
                 
@@ -1396,14 +1509,15 @@ Contacta con {emp['nombre']} en el {telefono}. Si no lo resuelven en 30 días, r
         
         st.divider()
         
-        with st.expander("👁️ Vista Previa del Artículo"):
-            st.markdown(articulo_final)
+        with st.expander("👁️ Vista Previa del Artículo (HTML)"):
+            html_preview = markdown_a_html(articulo_final)
+            st.components.v1.html(html_preview, height=600, scrolling=True)
 
 # TAB 5: DIAGNÓSTICO
 with tab5:
     st.header("🔍 Diagnóstico")
     
-    st.subheader("📊 Estadísticas")
+    st.subheader(" Estadísticas")
     
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("🏢 Empresas", len(df))
