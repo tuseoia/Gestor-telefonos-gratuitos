@@ -53,13 +53,20 @@ def limpiar_url(url):
 def generar_schema_faq(articulo_markdown, nombre_empresa):
     """Extrae las FAQ del artículo y genera el Schema.org FAQPage"""
     faq_section = ""
+    
+    # FIX: Buscar con o sin emoji
     if "## ❓ Preguntas Frecuentes" in articulo_markdown:
         inicio = articulo_markdown.find("## ❓ Preguntas Frecuentes")
-        siguiente_h2 = articulo_markdown.find("\n## ", inicio + 1)
-        if siguiente_h2 != -1:
-            faq_section = articulo_markdown[inicio: siguiente_h2]
-        else:
-            faq_section = articulo_markdown[inicio:]
+    elif "## Preguntas Frecuentes" in articulo_markdown:
+        inicio = articulo_markdown.find("## Preguntas Frecuentes")
+    else:
+        return None
+    
+    siguiente_h2 = articulo_markdown.find("\n## ", inicio + 1)
+    if siguiente_h2 != -1:
+        faq_section = articulo_markdown[inicio: siguiente_h2]
+    else:
+        faq_section = articulo_markdown[inicio:]
     
     faqs = []
     lineas = faq_section.split('\n')
@@ -297,12 +304,18 @@ def generar_meta_descripcion(empresa):
     """Genera una meta descripción optimizada"""
     telefono = empresa.get('telefono_900', '')
     nombre = empresa['nombre']
+    
+    # FIX: Manejar valores nan o vacíos del horario
     horario = empresa.get('horario_lunes_viernes', '24h')
+    if pd.isna(horario) or str(horario).lower() in ['nan', '', 'consultar web']:
+        horario = "24h"
+    elif len(str(horario)) > 30:  # Si es muy largo, acortarlo
+        horario = "Consultar web"
     
     plantillas = [
         f"☎️ Teléfono gratuito de {nombre}: {telefono}. Horario: {horario}. ✅ Verificado hoy. Guía completa: menú de voz, alternativas y consejos para reclamar.",
         f"¿Buscas el teléfono de {nombre}? 📞 {telefono} (GRATIS). Horario {horario}. Te explicamos cómo saltarte el menú de voz y hablar rápido con un operador.",
-        f"{nombre} teléfono de atención al cliente: {telefono} ✓ Gratis desde fijo y móvil ✓ Horario: {horario} ✓ Guía paso a paso para contactar sin esperas.",
+        f"{nombre} teléfono de atención al cliente: {telefono} ✓ Gratis ✓ Horario: {horario} ✓ Guía paso a paso para contactar sin esperas.",
     ]
     
     meta = random.choice(plantillas)
@@ -386,7 +399,7 @@ Descripción, disponibilidad, enlace a {web}
 ### 📱 WhatsApp Business  
 Número si existe, horario, tipo de consultas que atienden
 
-###  Correo Electrónico
+### 📧 Correo Electrónico
 Email de atención al cliente, tiempo medio de respuesta
 
 ### 📲 App Móvil
@@ -456,7 +469,7 @@ El operador que nos atendió mostró un **trato amable y profesional**, resolvie
 
 **Pasos para hablar con un operador:**
 
-1.  Marca el **{telefono}** desde tu teléfono
+1. 📞 Marca el **{telefono}** desde tu teléfono
 2. ⏳ Espera a que comience la locución inicial (no pulses nada todavía)
 3. 🔢 Pulsa la secuencia: **{menu_voz}**
 4. 🆔 Ten a mano tu DNI o número de cliente (te lo pedirán)
@@ -476,7 +489,7 @@ El operador que nos atendió mostró un **trato amable y profesional**, resolvie
             
             "formas_contacto": f"""Si el teléfono **{telefono}** está saturado o prefieres otros canales, **{nombre}** ofrece múltiples formas de contacto alternativas:
 
-###  Chat en Vivo
+### 💬 Chat en Vivo
 Disponible en la web oficial [{web}]({web}). Suele tener un tiempo de respuesta de 5-10 minutos y está disponible en horario de atención telefónica. Ideal para consultas sencillas sobre facturación o incidencias técnicas menores.
 
 ### 📱 WhatsApp Business
@@ -485,7 +498,7 @@ Disponible en la web oficial [{web}]({web}). Suele tener un tiempo de respuesta 
 ### 📧 Correo Electrónico
 Puedes enviar tu consulta a través del formulario de contacto disponible en su web oficial. El tiempo medio de respuesta es de 24-48 horas laborables. Para reclamaciones formales, usa siempre este canal para tener constancia por escrito.
 
-###  App Móvil
+### 📲 App Móvil
 La aplicación oficial de **{nombre}** está disponible para iOS y Android. Permite gestionar tu cuenta, consultar facturas, realizar pagos y contactar con atención al cliente a través de un chat integrado. Es la forma más rápida de resolver consultas sin llamar.
 
 ### 🐦 Redes Sociales
@@ -765,7 +778,7 @@ class WPPublisher:
             elif response.status_code == 403:
                 return {
                     "success": False, 
-                    "error": "❌ Error 403: Prohibido. Causas: 1) Fail2Ban bloqueó la IP de Streamlit, 2) Plugin de seguridad bloqueando, 3) Usuario sin permisos. Solución: Ejecuta 'fail2ban-client unban --all' en SSH"
+                    "error": "❌ Error 403: Prohibido. Publica manualmente: copia el artículo y pégalo en WordPress como nuevo post."
                 }
             else:
                 return {
@@ -797,7 +810,6 @@ if st.sidebar.button("🔍 Ver IP de Streamlit"):
     try:
         ip = urllib.request.urlopen('https://api.ipify.org').read().decode('utf8')
         st.sidebar.success(f"📍 IP: {ip}")
-        st.sidebar.info("Si esta IP está bloqueada en Fail2Ban, ejecuta: fail2ban-client unban --all")
     except Exception as e:
         st.sidebar.error(f"Error: {str(e)}")
 
@@ -823,32 +835,29 @@ else:
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "📊 1. Base de Datos",
     "🕷️ 2. Scraping",
-    " 3. Generar Artículo",
-    " 4. Publicar",
-    " 5. Diagnóstico"
+    "🤖 3. Generar Artículo",
+    "🚀 4. Publicar",
+    "🔍 5. Diagnóstico"
 ])
 
 # TAB 1: BASE DE DATOS
 with tab1:
     st.header("Gestión de Empresas")
     
-    # Mostrar información de la base de datos actual
     col1, col2, col3 = st.columns(3)
     with col1:
         st.metric("🏢 Total Empresas", len(df))
     with col2:
-        st.metric(" Con Teléfono", len(df[df['telefono_900'].notna()]) if not df.empty else 0)
+        st.metric("📞 Con Teléfono", len(df[df['telefono_900'].notna()]) if not df.empty else 0)
     with col3:
         st.metric("🌐 Con Web Oficial", len(df[df['web_oficial'].notna()]) if not df.empty else 0)
     
     st.divider()
     
-    # Editor de datos
     st.subheader("📝 Editar Empresas")
     st.info("💡 Edita la tabla directamente como si fuera Excel. Los cambios se guardan al pulsar el botón.")
     edited_df = st.data_editor(df, num_rows="dynamic", use_container_width=True, key="data_editor_empresas")
     
-    # Botones de acción
     col1, col2 = st.columns(2)
     
     with col1:
@@ -859,7 +868,6 @@ with tab1:
             st.rerun()
     
     with col2:
-        # Botón de borrado con confirmación en dos pasos
         if 'confirmar_borrado' not in st.session_state:
             st.session_state.confirmar_borrado = False
         
@@ -873,11 +881,9 @@ with tab1:
             with col_confirm:
                 if st.button("✅ Sí, borrar todo", type="primary", use_container_width=True, key="btn_confirmar_borrado"):
                     try:
-                        # Borrar el archivo CSV
                         if os.path.exists(CSV_PATH):
                             os.remove(CSV_PATH)
                         
-                        # Crear nuevo DataFrame vacío con las columnas correctas
                         df_vacio = pd.DataFrame(columns=[
                             "nombre", "sector", "telefono_900", "telefono_fijo",
                             "horario_lunes_viernes", "horario_sabado", "web_oficial",
@@ -887,17 +893,14 @@ with tab1:
                         ])
                         df_vacio.to_csv(CSV_PATH, index=False)
                         
-                        # Resetear estado
                         st.session_state.confirmar_borrado = False
                         st.session_state.pop('empresa_actual', None)
                         st.session_state.pop('secciones_articulo', None)
                         
-                        st.success("🗑️ Base de datos borrada correctamente. Se ha creado una nueva vacía.")
+                        st.success("🗑️ Base de datos borrada correctamente.")
                         st.balloons()
                         
-                        # Recargar
                         df = df_vacio
-                        import time
                         time.sleep(1)
                         st.rerun()
                         
@@ -910,27 +913,21 @@ with tab1:
                     st.session_state.confirmar_borrado = False
                     st.rerun()
     
-    # Botón de exportar backup
     st.divider()
     if st.button("📥 Exportar Backup CSV", use_container_width=True, key="btn_exportar_backup"):
         try:
-            backup_path = f"data/empresas_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
-            df.to_csv(backup_path, index=False)
-            st.success(f"✅ Backup creado: `{backup_path}`")
-            
-            # Ofrecer descarga
-            with open(backup_path, 'rb') as f:
-                st.download_button(
-                    label="️ Descargar Backup",
-                    data=f,
-                    file_name=os.path.basename(backup_path),
-                    mime='text/csv',
-                    key="btn_descargar_backup"
-                )
+            csv_data = df.to_csv(index=False)
+            st.download_button(
+                label="⬇️ Descargar CSV",
+                data=csv_data,
+                file_name=f"empresas_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                mime='text/csv',
+                key="btn_descargar_backup"
+            )
+            st.success("✅ Backup listo para descargar")
         except Exception as e:
-            st.error(f"❌ Error al crear backup: {str(e)}")
+            st.error(f"❌ Error: {str(e)}")
     
-    # Información adicional
     st.divider()
     with st.expander("ℹ️ Información sobre la base de datos"):
         st.markdown(f"""
@@ -952,14 +949,11 @@ with tab1:
         - `sector_relacionado_1`: Empresa competidora 1
         - `sector_relacionado_2`: Empresa competidora 2
         - `ultima_verificacion`: Fecha de última verificación
-        
-        **️ Cuidado:** Al borrar la base de datos, se perderán TODAS las empresas. 
-        Esta acción no se puede deshacer.
         """)
 
 # TAB 2: SCRAPING
 with tab2:
-    st.header("️ Extracción Inteligente")
+    st.header("🕷️ Extracción Inteligente")
     
     modo = st.radio(
         "Método:",
@@ -1033,7 +1027,7 @@ with tab3:
                 secciones = {}
                 progress = st.progress(0)
                 
-                st.write(" Experiencia...")
+                st.write("📝 Experiencia...")
                 secciones['experiencia'] = ai.generar(datos_empresa, "experiencia")
                 progress.progress(20)
                 
@@ -1123,7 +1117,7 @@ Si necesitas contactar con {emp['nombre']} para resolver dudas sobre facturació
 
 ---
 
-##  Horarios de Atención al Cliente
+## 🕐 Horarios de Atención al Cliente
 
 **Horario habitual:**
 - **Lunes a Viernes:** {horario}
@@ -1140,7 +1134,7 @@ Si necesitas contactar con {emp['nombre']} para resolver dudas sobre facturació
 
 ---
 
-##  Todas las Formas de Contactar
+## 📧 Todas las Formas de Contactar
 
 {secciones.get('formas_contacto', '')}
 
@@ -1195,7 +1189,7 @@ Presenta reclamación ante OMIC o Consumo de tu comunidad.
 
 ---
 
-##  Sobre {emp['nombre']}
+## 🏢 Sobre {emp['nombre']}
 
 {emp['nombre']} es una empresa líder en {emp.get('sector', 'servicios')} en España. Su sede se encuentra en {direccion}.
 
@@ -1211,7 +1205,7 @@ Según Trustpilot, OCU y Google Reviews:
 
 ---
 
-##  Preguntas Frecuentes
+## ❓ Preguntas Frecuentes
 
 ### ¿El {telefono} es gratis?
 Sí, {'los 900 son gratuitos desde fijo y móvil.' if len(telefono_limpio) == 9 else f'el {telefono} es gratuito desde móviles de {emp["nombre"]}.'}
@@ -1259,7 +1253,7 @@ Contacta con {emp['nombre']} en el {telefono}. Si no lo resuelven en 30 días, r
         articulo_con_toc = generar_tabla_contenidos(articulo_base) + articulo_base
         articulo_final = generar_enlaces_internos(articulo_con_toc, df, emp['nombre'])
         
-        st.markdown("###  Vista Previa")
+        st.markdown("### 📝 Vista Previa")
         with st.expander("👁️ Ver artículo completo"):
             st.markdown(articulo_final)
         
@@ -1272,7 +1266,7 @@ Contacta con {emp['nombre']} en el {telefono}. Si no lo resuelven en 30 días, r
         num_h2 = articulo_final.count('\n## ')
         
         col1, col2, col3, col4 = st.columns(4)
-        col1.metric(" Palabras", f"{num_palabras}")
+        col1.metric("📊 Palabras", f"{num_palabras}")
         col2.metric("📑 Secciones", f"{num_h2}")
         col3.metric("⭐ Puntuación", f"{resultado_val['puntuacion']}/100")
         col4.metric("✅ Aprobado", "SÍ" if resultado_val['aprobado'] else "NO")
@@ -1307,10 +1301,17 @@ Contacta con {emp['nombre']} en el {telefono}. Si no lo resuelven en 30 días, r
             col4.success(f"✅ Breadcrumb\nNav")
             
             st.info(f"**Meta Descripción:** {meta_descripcion}")
+            
+            with st.expander("👁️ Ver códigos Schema.org (para publicar manualmente)"):
+                st.markdown("**Copia estos schemas y pégalos al inicio del artículo en WordPress:**")
+                st.code(schema_contact['html'], language='html')
+                if schema_faq:
+                    st.code(schema_faq['html'], language='html')
         
         st.divider()
         
-        if st.button("📤 Publicar en WordPress", type="primary", disabled=not resultado_val['aprobado'], key="btn_publicar_wp"):
+        # Botón de publicación automática
+        if st.button("📤 Publicar en WordPress (Automático)", type="primary", disabled=not resultado_val['aprobado'], key="btn_publicar_wp"):
             with st.spinner("Publicando..."):
                 publisher = WPPublisher()
                 titulo = f"Teléfono Gratuito de {emp['nombre']} {datetime.now().year}"
@@ -1328,6 +1329,36 @@ Contacta con {emp['nombre']} en el {telefono}. Si no lo resuelven en 30 días, r
                     st.balloons()
                 else:
                     st.error(resultado_wp['error'])
+        
+        # Botón de copia manual
+        st.divider()
+        st.subheader("📋 Publicación Manual (Alternativa)")
+        st.info("Si la publicación automática falla, copia el contenido y pégalo manualmente en WordPress.")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("📋 Copiar Artículo Completo", use_container_width=True, key="btn_copiar_articulo"):
+                st.code(articulo_final, language="markdown")
+                st.success("✅ Contenido listo para copiar")
+        
+        with col2:
+            if st.button("📋 Copiar Schemas HTML", use_container_width=True, key="btn_copiar_schemas"):
+                schemas_html = ""
+                if st.session_state.get('schema_contact'):
+                    schemas_html += st.session_state['schema_contact']['html'] + "\n\n"
+                if st.session_state.get('schema_faq'):
+                    schemas_html += st.session_state['schema_faq']['html']
+                st.code(schemas_html, language="html")
+                st.success("✅ Schemas listos para copiar")
+        
+        st.markdown("""
+        **Instrucciones para publicar manualmente:**
+        1. Copia los **Schemas HTML** y pégalos al inicio del artículo en WordPress (en modo HTML)
+        2. Copia el **Artículo Completo** y pégalo en el editor de WordPress
+        3. Añade la **Meta Descripción** en Yoast SEO o RankMath
+        4. Selecciona la categoría adecuada (Telecomunicaciones, Energía, etc.)
+        5. Guarda como borrador, revisa y publica
+        """)
 
 # TAB 5: DIAGNÓSTICO
 with tab5:
@@ -1335,7 +1366,7 @@ with tab5:
     
     st.subheader("🧪 Probar Conexión WordPress")
     
-    if st.button(" Probar", key="btn_test_wp"):
+    if st.button("🔍 Probar", key="btn_test_wp"):
         url_base = os.getenv('WP_URL', '').rstrip('/')
         user = os.getenv('WP_USER')
         pwd = os.getenv('WP_APP_PASSWORD')
@@ -1366,9 +1397,8 @@ with tab5:
                 st.error("❌ Application Password incorrecta")
             elif response.status_code == 403:
                 st.error("❌ Sin permisos o IP bloqueada")
-                st.warning("Ejecuta en SSH: fail2ban-client unban --all")
         except Exception as e:
-            st.error(f" {str(e)}")
+            st.error(f"❌ {str(e)}")
     
     st.divider()
     st.subheader("📊 Estadísticas")
