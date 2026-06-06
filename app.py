@@ -1193,7 +1193,7 @@ Si necesitas contactar con {emp['nombre']} para resolver dudas sobre facturació
 | **Teléfono** | **{telefono}** |
 | **Horario** | {horario} |
 | **Web Oficial** | [{web}]({web}) |
-| **Email** | {email} |
+| **Email** | [{'mailto:' + email if '@' in email else email}]({email if '@' in email else '#'}) |
 
 ---
 
