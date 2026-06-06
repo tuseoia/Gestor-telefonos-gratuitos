@@ -38,12 +38,30 @@ def limpiar_url(url):
     if not url or pd.isna(url):
         return ""
     url = str(url).strip()
+    # Si es un enlace markdown [texto](url), extraer solo la URL
     match = re.search(r'\[([^\]]+)\]\(([^)]+)\)', url)
     if match:
         return match.group(2)
+    # Si ya es una URL limpia, devolverla
     if url.startswith('http'):
         return url
     return url
+
+# ==========================================
+# FUNCIÓN PARA LIMPIAR EMAIL
+# ==========================================
+def limpiar_email(email):
+    """Limpia el email eliminando 'mailto:' y valores no válidos"""
+    if not email or pd.isna(email):
+        return ""
+    email = str(email).strip()
+    # Eliminar "mailto:" si existe
+    if email.lower().startswith('mailto:'):
+        email = email[7:]
+    # Verificar si es un email válido
+    if '@' in email and '.' in email:
+        return email
+    return ""
 
 # ==========================================
 # FUNCIÓN PARA GENERAR SLUG
@@ -64,6 +82,7 @@ def generar_schema_faq(articulo_markdown, nombre_empresa):
     """Extrae las FAQ del artículo y genera el Schema.org FAQPage"""
     faq_section = ""
     
+    # FIX: Buscar con o sin emoji
     if "## ❓ Preguntas Frecuentes" in articulo_markdown:
         inicio = articulo_markdown.find("## ❓ Preguntas Frecuentes")
     elif "## Preguntas Frecuentes" in articulo_markdown:
@@ -173,7 +192,7 @@ def generar_schema_contact_point(empresa, articulo_markdown):
         "@context": "https://schema.org",
         "@type": "Organization",
         "name": empresa['nombre'],
-        "url": empresa.get('web_oficial', ''),
+        "url": limpiar_url(empresa.get('web_oficial', '')),
         "contactPoint": {
             "@type": "ContactPoint",
             "telephone": telefono_schema,
@@ -314,6 +333,7 @@ def generar_meta_descripcion(empresa):
     telefono = empresa.get('telefono_900', '')
     nombre = empresa['nombre']
     
+    # FIX: Manejar valores nan o vacíos del horario
     horario = empresa.get('horario_lunes_viernes', '24h')
     if pd.isna(horario) or str(horario).lower() in ['nan', '', 'consultar web']:
         horario = "24h"
@@ -341,7 +361,6 @@ def crear_csv_wpallimport(lista_articulos):
     if not lista_articulos:
         return None
     
-    # Crear DataFrame con las columnas que WP All Import necesita
     data = []
     for art in lista_articulos:
         # Combinar schemas con el contenido
@@ -795,72 +814,13 @@ class ValidadorAdSense:
         return {"aprobado": len(errores) == 0, "errores": errores, "puntuacion": max(0, puntuacion)}
 
 
-class WPPublisher:
-    def publicar(self, titulo, contenido, schema_faq=None, schema_contact=None, meta_descripcion=None):
-        url_base = os.getenv('WP_URL', '').rstrip('/')
-        url = f"{url_base}/wp-json/wp/v2/posts"
-        user = os.getenv('WP_USER')
-        pwd = os.getenv('WP_APP_PASSWORD')
-        
-        if not url_base or not user or not pwd:
-            return {
-                "success": False, 
-                "error": "❌ Credenciales incompletas. Verifica WP_URL, WP_USER y WP_APP_PASSWORD en Secrets"
-            }
-        
-        contenido_completo = ""
-        if schema_contact:
-            contenido_completo += schema_contact['html'] + "\n\n"
-        if schema_faq:
-            contenido_completo += schema_faq['html'] + "\n\n"
-        contenido_completo += contenido
-        
-        payload = {
-            "title": titulo,
-            "content": contenido_completo,
-            "status": "draft"
-        }
-        
-        if meta_descripcion:
-            payload["meta"] = {"_yoast_wpseo_metadesc": meta_descripcion}
-        
-        try:
-            response = requests.post(url, auth=(user, pwd), json=payload, timeout=30)
-            
-            if response.status_code == 201:
-                return {
-                    "success": True,
-                    "url": response.json()['link'],
-                    "schema_incluido": schema_faq is not None or schema_contact is not None,
-                    "meta_descripcion": meta_descripcion
-                }
-            elif response.status_code == 401:
-                return {
-                    "success": False, 
-                    "error": "❌ Error 401: Application Password incorrecta."
-                }
-            elif response.status_code == 403:
-                return {
-                    "success": False, 
-                    "error": "❌ Error 403: Prohibido. Usa el CSV para WP All Import."
-                }
-            else:
-                return {
-                    "success": False, 
-                    "error": f"❌ Error {response.status_code}: {response.text[:300]}"
-                }
-                
-        except Exception as e:
-            return {"success": False, "error": f"❌ Error: {str(e)}"}
-
-
 # ==========================================
 # INTERFAZ DE USUARIO
 # ==========================================
 
 st.set_page_config(page_title="Gestor Telefonos Gratuitos", page_icon="📞", layout="wide")
 st.title("📞 Panel de Control: telefonos-gratuitos.com")
-st.markdown("Automatización SEO + AdSense + Qwen AI + WordPress + Schema.org")
+st.markdown("Automatización SEO + AdSense + Qwen AI + WordPress + Schema.org + WP All Import")
 
 st.sidebar.header("⚙️ Configuración")
 st.sidebar.info("Las claves se cargan desde Secrets")
@@ -891,7 +851,7 @@ if not os.path.exists(CSV_PATH):
 else:
     df = pd.read_csv(CSV_PATH)
 
-# Inicializar historial de artículos para WP All Import
+# Inicializar historial de artículos
 if 'historial_articulos' not in st.session_state:
     st.session_state.historial_articulos = []
 
@@ -899,7 +859,7 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "📊 1. Base de Datos",
     "🕷️ 2. Scraping",
     "🤖 3. Generar Artículo",
-    "🚀 4. Publicar / Exportar",
+    "🚀 4. Exportar WP All Import",
     "🔍 5. Diagnóstico"
 ])
 
@@ -1090,11 +1050,11 @@ with tab3:
                 st.session_state['secciones_articulo'] = secciones
                 st.session_state['empresa_actual'] = datos_empresa
                 
-                st.success("✅ Artículo generado. Ve a 'Publicar / Exportar'")
+                st.success("✅ Artículo generado. Ve a 'Exportar WP All Import'")
 
-# TAB 4: PUBLICAR / EXPORTAR
+# TAB 4: EXPORTAR WP ALL IMPORT
 with tab4:
-    st.header("🚀 Publicación y Exportación para WP All Import")
+    st.header("🚀 Exportar para WP All Import Pro")
     
     if 'empresa_actual' not in st.session_state or 'secciones_articulo' not in st.session_state:
         st.info("Genera un artículo primero en la pestaña 'Generar Artículo'")
@@ -1124,8 +1084,9 @@ with tab4:
         if not web or pd.isna(web) or str(web).lower() in ['nan', '']:
             web = f"https://www.{emp['nombre'].lower().replace(' ', '')}.es"
         
-        email = emp.get('email', 'A través del formulario de su web oficial')
-        if pd.isna(email) or str(email).lower() in ['nan', 'no disponible', '']:
+        email_raw = emp.get('email', '')
+        email = limpiar_email(email_raw)
+        if not email:
             email = "A través del formulario de su web oficial"
         
         direccion = emp.get('direccion_postal', 'Consulta en su web oficial')
@@ -1321,13 +1282,10 @@ Contacta con {emp['nombre']} en el {telefono}. Si no lo resuelven en 30 días, r
         
         st.divider()
         
-        # ==========================================
         # SECCIÓN DE EXPORTACIÓN PARA WP ALL IMPORT
-        # ==========================================
         st.subheader("📦 Exportar para WP All Import Pro")
-        st.info("💡 Genera un CSV optimizado para importar artículos masivamente a WordPress usando WP All Import Pro.")
+        st.info("💡 Genera un CSV optimizado para importar artículos masivamente a WordPress.")
         
-        # Preparar datos del artículo actual
         slug = generar_slug(emp['nombre'])
         titulo = f"Teléfono Gratuito de {emp['nombre']} {datetime.now().year} - Atención al Cliente"
         
@@ -1349,18 +1307,16 @@ Contacta con {emp['nombre']} en el {telefono}. Si no lo resuelven en 30 días, r
             'schema_contact_html': schema_contact['html'] if schema_contact else ''
         }
         
-        # Botón para añadir al historial
         col1, col2 = st.columns(2)
         with col1:
-            if st.button("➕ Añadir Artículo al Historial", type="primary", use_container_width=True, key="btn_add_historial", disabled=not resultado_val['aprobado']):
-                # Verificar si ya existe
+            if st.button("➕ Añadir al Historial", type="primary", use_container_width=True, key="btn_add_historial", disabled=not resultado_val['aprobado']):
                 existe = any(a['empresa'] == emp['nombre'] for a in st.session_state.historial_articulos)
                 if existe:
-                    st.warning(f"⚠️ Ya existe un artículo de **{emp['nombre']}** en el historial. Se actualizará.")
+                    st.warning(f"⚠️ Ya existe un artículo de **{emp['nombre']}**. Se actualizará.")
                     st.session_state.historial_articulos = [a for a in st.session_state.historial_articulos if a['empresa'] != emp['nombre']]
                 
                 st.session_state.historial_articulos.append(articulo_para_historial)
-                st.success(f"✅ Artículo de **{emp['nombre']}** añadido al historial ({len(st.session_state.historial_articulos)} total)")
+                st.success(f"✅ Artículo de **{emp['nombre']}** añadido ({len(st.session_state.historial_articulos)} total)")
                 st.rerun()
         
         with col2:
@@ -1370,51 +1326,43 @@ Contacta con {emp['nombre']} en el {telefono}. Si no lo resuelven en 30 días, r
                     st.success("🗑️ Historial limpiado")
                     st.rerun()
         
-        # Mostrar historial de artículos
         if st.session_state.historial_articulos:
             st.divider()
-            st.subheader(f"📚 Historial de Artículos ({len(st.session_state.historial_articulos)})")
+            st.subheader(f"📚 Historial ({len(st.session_state.historial_articulos)} artículos)")
             
-            # Tabla resumen
             df_historial = pd.DataFrame([{
                 'ID': a['id'],
                 'Empresa': a['empresa'],
                 'Teléfono': a['telefono'],
                 'Sector': a['sector'],
                 'Palabras': a['num_palabras'],
-                'Slug': a['slug'],
-                'Fecha': a['fecha_verificacion']
+                'Slug': a['slug']
             } for a in st.session_state.historial_articulos])
             
             st.dataframe(df_historial, use_container_width=True, hide_index=True)
             
             st.divider()
-            
-            # Botones de descarga
-            st.subheader("⬇️ Descargar CSV para WP All Import")
+            st.subheader("⬇️ Descargar CSV")
             
             col1, col2 = st.columns(2)
             
             with col1:
-                # Descargar solo el artículo actual
                 csv_uno = crear_csv_wpallimport([articulo_para_historial])
                 if csv_uno:
                     st.download_button(
-                        label=f"📥 Descargar Artículo Actual ({emp['nombre']})",
+                        label=f"📥 Solo {emp['nombre']}",
                         data=csv_uno,
                         file_name=f"wp_import_{slug}_{datetime.now().strftime('%Y%m%d')}.csv",
                         mime='text/csv',
                         use_container_width=True,
                         key="btn_descargar_uno"
                     )
-                    st.caption("Descarga solo el artículo que acabas de generar")
             
             with col2:
-                # Descargar todos los artículos del historial
                 csv_todos = crear_csv_wpallimport(st.session_state.historial_articulos)
                 if csv_todos:
                     st.download_button(
-                        label=f"📥 Descargar TODOS ({len(st.session_state.historial_articulos)} artículos)",
+                        label=f"📥 TODOS ({len(st.session_state.historial_articulos)})",
                         data=csv_todos,
                         file_name=f"wp_import_completo_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
                         mime='text/csv',
@@ -1422,118 +1370,34 @@ Contacta con {emp['nombre']} en el {telefono}. Si no lo resuelven en 30 días, r
                         key="btn_descargar_todos",
                         type="primary"
                     )
-                    st.caption("Descarga todos los artículos del historial")
             
-            st.divider()
-            
-            # Instrucciones para WP All Import
-            with st.expander("📖 Instrucciones para WP All Import Pro"):
+            with st.expander("📖 Instrucciones WP All Import"):
                 st.markdown("""
-                ### 🚀 Cómo importar el CSV a WordPress con WP All Import Pro
+                ### 🚀 Cómo importar a WordPress
                 
-                #### **Paso 1: Instalar WP All Import Pro**
-                1. Ve a **WordPress → Plugins → Añadir nuevo**
-                2. Busca **"WP All Import"** e instálalo
-                3. Si tienes la versión Pro, sube el ZIP desde "Subir plugin"
-                4. Activa el plugin
-                
-                #### **Paso 2: Iniciar la importación**
-                1. Ve a **All Import → New Import**
-                2. Selecciona **"Upload a file"** y sube el CSV descargado
-                3. Selecciona **"Posts"** como tipo de importación
-                4. Haz clic en **"Continue to Step 2"**
-                
-                #### **Paso 3: Mapear campos**
-                WP All Import detectará automáticamente las columnas. Verifica este mapeo:
-                
-                | Columna CSV | Campo WordPress |
-                |-------------|-----------------|
-                | `post_title` | **Title** |
-                | `post_content` | **Content** |
-                | `post_name` | **Slug** |
-                | `post_excerpt` | **Excerpt** |
-                | `post_status` | **Status** (draft) |
-                | `post_category` | **Categories** (separadas por \|) |
-                | `post_tags` | **Tags** |
-                
-                #### **Paso 4: Campos personalizados (Custom Fields)**
-                En la sección **"Custom Fields"**, añade estos campos:
-                
-                | Nombre del campo | Valor |
-                |------------------|-------|
-                | `_yoast_wpseo_metadesc` | {meta_yoast_description} |
-                | `_yoast_wpseo_title` | {meta_yoast_title} |
-                | `telefono` | {meta_telefono} |
-                | `empresa` | {meta_empresa} |
-                | `sector` | {meta_sector} |
-                | `fecha_verificacion` | {meta_fecha_verificacion} |
-                | `tiempo_lectura` | {meta_tiempo_lectura} |
-                
-                #### **Paso 5: Ejecutar la importación**
-                1. Haz clic en **"Continue to Step 4"**
-                2. Revisa el resumen
-                3. Haz clic en **"Confirm & Run Import"**
-                4. Espera a que termine
-                
-                #### **Paso 6: Verificar en WordPress**
-                1. Ve a **Entradas → Todas las entradas**
-                2. Verifica que los artículos están como **Borradores**
-                3. Revisa algunos artículos manualmente
-                4. Cuando estés satisfecho, **publícalos**
-                
-                ### ⚠️ Notas importantes
-                
-                - Los artículos se importan como **borradores** para que puedas revisarlos antes de publicar
-                - Los **schemas Schema.org** ya están incluidos en el contenido
-                - Las **categorías** se crean automáticamente si no existen
-                - Si usas **Yoast SEO**, la meta descripción se configura automáticamente
-                - Puedes cambiar `post_status` de `draft` a `publish` en el CSV si quieres publicar directamente
-                
-                ### 🎯 Campos disponibles en el CSV
-                
-                El CSV incluye estas columnas listas para mapear:
-                
-                - `id` - Identificador único
-                - `post_title` - Título del artículo
-                - `post_name` - Slug SEO-friendly
-                - `post_content` - Contenido completo con schemas
-                - `post_excerpt` - Meta descripción
-                - `post_status` - Estado (draft)
-                - `post_type` - Tipo (post)
-                - `post_category` - Categorías (separadas por |)
-                - `post_tags` - Etiquetas
-                - `meta_yoast_description` - Meta para Yoast
-                - `meta_yoast_title` - Título SEO para Yoast
-                - `meta_empresa` - Nombre de la empresa
-                - `meta_telefono` - Teléfono
-                - `meta_sector` - Sector
-                - `meta_fecha_verificacion` - Fecha de verificación
-                - `meta_tiempo_lectura` - Tiempo de lectura
-                - `meta_palabras` - Número de palabras
-                - `schema_faq_html` - Schema FAQ separado
-                - `schema_contact_html` - Schema Contact separado
-                - `url_web_oficial` - URL web oficial
-                - `email_contacto` - Email de contacto
-                - `horario_atencion` - Horario de atención
-                - `fecha_generacion` - Fecha de generación
+                1. **Instala WP All Import Pro** en WordPress
+                2. Ve a **All Import → New Import**
+                3. Sube el CSV descargado
+                4. Selecciona **"Posts"** como tipo
+                5. Mapea los campos:
+                   - `post_title` → Title
+                   - `post_content` → Content
+                   - `post_name` → Slug
+                   - `post_excerpt` → Excerpt
+                   - `post_category` → Categories
+                   - `post_tags` → Tags
+                6. En **Custom Fields**, añade:
+                   - `_yoast_wpseo_metadesc` → {meta_yoast_description}
+                   - `telefono` → {meta_telefono}
+                   - `empresa` → {meta_empresa}
+                7. Ejecuta la importación
+                8. Revisa los borradores y publica
                 """)
         
         st.divider()
         
-        # Vista previa del artículo
-        st.subheader("👁️ Vista Previa del Artículo")
-        with st.expander("📄 Ver artículo completo"):
+        with st.expander("👁️ Vista Previa del Artículo"):
             st.markdown(articulo_final)
-        
-        # Vista previa del CSV
-        if st.session_state.historial_articulos:
-            st.divider()
-            st.subheader("🔍 Vista Previa del CSV")
-            with st.expander("📊 Ver estructura del CSV"):
-                csv_preview = crear_csv_wpallimport(st.session_state.historial_articulos[:1])
-                if csv_preview:
-                    st.code(csv_preview[:2000] + "...", language="csv")
-                    st.info(f"📌 El CSV completo tiene {len(st.session_state.historial_articulos)} filas y 23 columnas")
 
 # TAB 5: DIAGNÓSTICO
 with tab5:
@@ -1545,45 +1409,7 @@ with tab5:
     col1.metric("🏢 Empresas", len(df))
     col2.metric("📞 Con teléfono", len(df[df['telefono_900'].notna()]) if not df.empty else 0)
     col3.metric("🌐 Con web", len(df[df['web_oficial'].notna()]) if not df.empty else 0)
-    col4.metric("📚 Artículos en Historial", len(st.session_state.historial_articulos))
-    
-    st.divider()
-    
-    st.subheader("🧪 Probar Conexión WordPress")
-    
-    if st.button("🔍 Probar", key="btn_test_wp"):
-        url_base = os.getenv('WP_URL', '').rstrip('/')
-        user = os.getenv('WP_USER')
-        pwd = os.getenv('WP_APP_PASSWORD')
-        
-        st.write(f"**URL:** {url_base}")
-        st.write(f"**Usuario:** {user}")
-        
-        st.write("**1️⃣ REST API**")
-        try:
-            response = requests.get(f"{url_base}/wp-json/", timeout=10)
-            if response.status_code == 200:
-                st.success("✅ REST API accesible")
-            else:
-                st.error(f"❌ Error {response.status_code}")
-        except Exception as e:
-            st.error(f"❌ {str(e)}")
-        
-        st.write("**2️⃣ Autenticación**")
-        try:
-            response = requests.get(f"{url_base}/wp-json/wp/v2/users/me", auth=(user, pwd), timeout=10)
-            
-            if response.status_code == 200:
-                st.success("✅ Autenticación correcta")
-                user_data = response.json()
-                st.info(f"Usuario: {user_data.get('name')}")
-                st.info(f"Rol: {user_data.get('roles', ['?'])[0]}")
-            elif response.status_code == 401:
-                st.error("❌ Application Password incorrecta")
-            elif response.status_code == 403:
-                st.error("❌ Sin permisos o IP bloqueada")
-        except Exception as e:
-            st.error(f"❌ {str(e)}")
+    col4.metric("📚 Historial", len(st.session_state.historial_articulos))
     
     st.divider()
     st.subheader("📅 Fecha")
