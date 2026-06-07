@@ -60,7 +60,7 @@ def limpiar_email(email):
     return ""
 
 # ==========================================
-# FUNCIÓN PARA GENERAR SLUG
+# FUNCIÓN PARA GENERAR SLUG CORTO
 # ==========================================
 def generar_slug(nombre_empresa):
     """Genera un slug SEO-friendly corto para WordPress"""
@@ -380,7 +380,7 @@ def generar_enlaces_internos(articulo_markdown, df_empresas, empresa_actual):
         if not nombre_otra or nombre_otra == empresa_actual:
             continue
         
-        slug = f"telefono-gratuito-{nombre_otra.lower().replace(' ', '-')}"
+        slug = f"telefono-gratuito-de-{nombre_otra.lower().replace(' ', '-')}"
         url_interna = f"https://telefonos-gratuitos.com/{slug}/"
         
         patron_buscado = f"**{nombre_otra}**"
@@ -421,7 +421,7 @@ def generar_meta_descripcion(empresa):
         horario = "Consultar web"
     
     plantillas = [
-        f"️ Teléfono gratuito de {nombre}: {telefono}. Horario: {horario}. ✅ Verificado hoy. Guía completa: menú de voz, alternativas y consejos para reclamar.",
+        f"☎️ Teléfono gratuito de {nombre}: {telefono}. Horario: {horario}. ✅ Verificado hoy. Guía completa: menú de voz, alternativas y consejos para reclamar.",
         f"¿Buscas el teléfono de {nombre}? 📞 {telefono} (GRATIS). Horario {horario}. Te explicamos cómo saltarte el menú de voz y hablar rápido con un operador.",
         f"{nombre} teléfono de atención al cliente: {telefono} ✓ Gratis ✓ Horario: {horario} ✓ Guía paso a paso para contactar sin esperas.",
     ]
@@ -566,7 +566,7 @@ Descripción, disponibilidad, enlace a {web}
 ### 📱 WhatsApp Business  
 Número si existe, horario, tipo de consultas que atienden
 
-###  Correo Electrónico
+### 📧 Correo Electrónico
 Email de atención al cliente, tiempo medio de respuesta
 
 ### 📲 App Móvil
@@ -634,14 +634,14 @@ El operador que nos atendió mostró un **trato amable y profesional**, resolvie
 **Pasos para hablar con un operador:**
 
 1. 📞 Marca el **{telefono}** desde tu teléfono
-2.  Espera a que comience la locución inicial (no pulses nada todavía)
+2. ⏳ Espera a que comience la locución inicial (no pulses nada todavía)
 3. 🔢 Pulsa la secuencia: **{menu_voz}**
 4. 🆔 Ten a mano tu DNI o número de cliente (te lo pedirán)
 5. ⏱️ Espera en la cola (tiempo medio: {tiempo_espera} minutos)
 
 **⚠️ Advertencias importantes:**
 
--  NO pulses la opción de "Nuevos clientes" o "Contratación", te redirigirá al departamento comercial
+- ❌ NO pulses la opción de "Nuevos clientes" o "Contratación", te redirigirá al departamento comercial
 - ❌ NO pulses opciones de "Ofertas especiales", son grabaciones publicitarias
 - ✅ Si te pierdes, pulsa 0 para volver al menú principal
 
@@ -887,7 +887,7 @@ class ValidadorAdSense:
         if len(texto.split()) < 500:
             errores.append("❌ Menos de 500 palabras")
         if "hemos" not in texto.lower() and "probado" not in texto.lower():
-            errores.append(" Falta experiencia en primera persona")
+            errores.append("❌ Falta experiencia en primera persona")
         if empresa['nombre'].lower() not in texto.lower():
             errores.append("❌ Nombre de empresa no aparece")
         
@@ -949,11 +949,11 @@ with tab1:
     
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.metric(" Total Empresas", len(df))
+        st.metric("🏢 Total Empresas", len(df))
     with col2:
         st.metric("📞 Con Teléfono", len(df[df['telefono_900'].notna()]) if not df.empty else 0)
     with col3:
-        st.metric(" Con Web Oficial", len(df[df['web_oficial'].notna()]) if not df.empty else 0)
+        st.metric("🌐 Con Web Oficial", len(df[df['web_oficial'].notna()]) if not df.empty else 0)
     
     st.divider()
     
@@ -1029,7 +1029,7 @@ with tab1:
             )
             st.success("✅ Backup listo para descargar")
         except Exception as e:
-            st.error(f" Error: {str(e)}")
+            st.error(f"❌ Error: {str(e)}")
 
 # TAB 2: SCRAPING
 with tab2:
@@ -1037,7 +1037,7 @@ with tab2:
     
     modo = st.radio(
         "Método:",
-        ["🔍 Búsqueda Inteligente", "🔄 Scraping Automático", " Manual Asistido"],
+        ["🔍 Búsqueda Inteligente", "🔄 Scraping Automático", "✋ Manual Asistido"],
         horizontal=True,
         key="modo_extraccion_radio"
     )
@@ -1045,7 +1045,7 @@ with tab2:
     if modo == "🔍 Búsqueda Inteligente":
         nombre_busqueda = st.text_input("Nombre de la empresa:", key="nombre_busqueda_inteligente")
         
-        if st.button(" Buscar", type="primary", key="btn_buscar_inteligente"):
+        if st.button("🔍 Buscar", type="primary", key="btn_buscar_inteligente"):
             if nombre_busqueda:
                 with st.spinner("Buscando..."):
                     searcher = GoogleSearcher()
@@ -1056,12 +1056,12 @@ with tab2:
                         tel_seleccionado = st.selectbox("Selecciona:", resultado['telefonos'], key="sel_tel_inteligente")
                         st.session_state['datos_extraidos'] = {'telefono': tel_seleccionado, 'horario': ""}
                     else:
-                        st.warning("️ No se encontraron teléfonos")
+                        st.warning("⚠️ No se encontraron teléfonos")
     
     elif modo == "🔄 Scraping Automático":
         url = st.text_input("URL:", key="url_scraping_auto")
         
-        if st.button(" Analizar", type="primary", key="btn_analizar_auto"):
+        if st.button("🔍 Analizar", type="primary", key="btn_analizar_auto"):
             if url:
                 with st.spinner("Analizando..."):
                     scraper = SmartScraper()
@@ -1080,7 +1080,7 @@ with tab2:
         st.markdown("**Instrucciones:** Ctrl+U → Ctrl+A → Ctrl+C → Pega abajo")
         html_input = st.text_area("HTML:", height=200, key="html_manual_asistido")
         
-        if st.button(" Extraer", type="primary", key="btn_extraer_html"):
+        if st.button("🔍 Extraer", type="primary", key="btn_extraer_html"):
             if html_input:
                 with st.spinner("Analizando..."):
                     extractor = HTMLExtractor()
@@ -1093,7 +1093,7 @@ with tab2:
 
 # TAB 3: GENERADOR CON IA
 with tab3:
-    st.header(" Generador de Artículos (1500+ palabras)")
+    st.header("🤖 Generador de Artículos (1500+ palabras)")
     
     if df.empty or df['nombre'].dropna().empty:
         st.warning("Añade empresas en 'Base de Datos'")
@@ -1123,7 +1123,7 @@ with tab3:
                 secciones['consejos'] = ai.generar(datos_empresa, "consejos")
                 progress.progress(80)
                 
-                st.write("️ Comparativa...")
+                st.write("⚖️ Comparativa...")
                 secciones['comparativa'] = ai.generar(datos_empresa, "comparativa")
                 progress.progress(100)
                 
@@ -1143,13 +1143,14 @@ with tab4:
         secciones = st.session_state['secciones_articulo']
         
         telefono = emp.get('telefono_900', 'Consultar web')
-        telefono_limpio = str(telefono).replace(' ', '')
+        telefono_limpio = re.sub(r'[\s.-]', '', str(telefono))
+        telefono_limpio_tel = telefono_limpio  # Para enlaces tel:
         
         if len(telefono_limpio) == 4:
-            intro_telefono = f"El número corto de {emp['nombre']} es el **{telefono}**."
+            intro_telefono = f"El número corto de {emp['nombre']} es el [**{telefono}**](tel:{telefono_limpio_tel})."
             nota_telefono = f"**Nota:** El {telefono} es gratuito desde móviles de {emp['nombre']}. Desde otros operadores, consulta alternativas."
         else:
-            intro_telefono = f"El teléfono gratuito de {emp['nombre']} es el **{telefono}**."
+            intro_telefono = f"El teléfono gratuito de {emp['nombre']} es el [**{telefono}**](tel:{telefono_limpio_tel})."
             nota_telefono = "Es totalmente gratis desde fijo y móvil en España."
         
         horario = emp.get('horario_lunes_viernes', 'Lunes a Viernes de 9:00 a 20:00')
@@ -1175,14 +1176,14 @@ with tab4:
         
         fecha_verificacion = fecha_espanol()
         
-        # CAMBIO 2: Eliminada la línea H1 duplicada (WordPress ya muestra el título del post)
+        # CAMBIO: Eliminada la línea H1 duplicada y sin tabla de contenidos
         articulo_base = f"""**Última verificación:** {fecha_verificacion} ✅  
 **Autor:** Equipo Editorial de telefonos-gratuitos.com  
 **Tiempo de lectura:** 7 minutos
 
 ---
 
-##  El Teléfono de {emp['nombre']}
+## 📞 El Teléfono de {emp['nombre']}
 
 {intro_telefono} {nota_telefono}
 
@@ -1190,10 +1191,10 @@ Si necesitas contactar con {emp['nombre']} para resolver dudas sobre facturació
 
 | Dato | Información |
 |------|-------------|
-| **Teléfono** | **{telefono}** |
+| **Teléfono** | [**{telefono}**](tel:{telefono_limpio_tel}) |
 | **Horario** | {horario} |
 | **Web Oficial** | [{web}]({web}) |
-| **Email** | [{'mailto:' + email if '@' in email else email}]({email if '@' in email else '#'}) |
+| **Email** | [{email}](mailto:{email}) |
 
 ---
 
@@ -1204,11 +1205,11 @@ Si necesitas contactar con {emp['nombre']} para resolver dudas sobre facturació
 - **Sábados:** {horario_sabado}
 - **Domingos y festivos:** Generalmente cerrado
 
-** Consejo:** Los mejores momentos para llamar son martes, miércoles y jueves entre las 10:00 y las 12:00.
+**💡 Consejo:** Los mejores momentos para llamar son martes, miércoles y jueves entre las 10:00 y las 12:00.
 
 ---
 
-## ️ Cómo Saltarse el Menú de Voz
+## 🗺️ Cómo Saltarse el Menú de Voz
 
 {secciones.get('menu_voz', '')}
 
@@ -1231,13 +1232,13 @@ Si necesitas contactar con {emp['nombre']} para resolver dudas sobre facturació
 
 ---
 
-##  Nuestra Experiencia
+## 📝 Nuestra Experiencia
 
 {secciones.get('experiencia', '')}
 
 ---
 
-## ️ Derechos del Consumidor
+## ⚖️ Derechos del Consumidor
 
 1. **Derecho a un número gratuito**
 2. **Derecho a ser atendido en tiempo razonable**
@@ -1250,10 +1251,10 @@ Si necesitas contactar con {emp['nombre']} para resolver dudas sobre facturació
 ## 📋 Cómo Reclamar
 
 ### Paso 1: Reclamación interna
-Llama al {telefono} y solicita un **número de incidencia**.
+Llama al [{telefono}](tel:{telefono_limpio_tel}) y solicita un **número de incidencia**.
 
 ### Paso 2: Reclamación por escrito
-Envía email a {email} detallando tus datos, fecha de llamada, número de incidencia y problema.
+Envía email a [{email}](mailto:{email}) detallando tus datos, fecha de llamada, número de incidencia y problema.
 
 ### Paso 3: Libro de reclamaciones
 Si en 30 días no hay respuesta, solicita el libro oficial.
@@ -1269,7 +1270,7 @@ Presenta reclamación ante OMIC o Consumo de tu comunidad.
 
 ---
 
-##  Sobre {emp['nombre']}
+## 🏢 Sobre {emp['nombre']}
 
 {emp['nombre']} es una empresa líder en {emp.get('sector', 'servicios')} en España. Su sede se encuentra en {direccion}.
 
@@ -1279,19 +1280,19 @@ Presenta reclamación ante OMIC o Consumo de tu comunidad.
 
 Según Trustpilot, OCU y Google Reviews:
 
-- **Puntos fuertes:** Existencia del {telefono} y profesionalidad de operadores
+- **Puntos fuertes:** Existencia del [{telefono}](tel:{telefono_limpio_tel}) y profesionalidad de operadores
 - **Puntos débiles:** Tiempos de espera y dificultad del menú de voz
 - **Recomendación:** Llamar a primera hora o usar chat web
 
 ---
 
-##  Preguntas Frecuentes
+## ❓ Preguntas Frecuentes
 
-### ¿El {telefono} es gratis?
-Sí, {'los 900 son gratuitos desde fijo y móvil.' if len(telefono_limpio) == 9 else f'el {telefono} es gratuito desde móviles de {emp["nombre"]}.'}
+### ¿El [{telefono}](tel:{telefono_limpio_tel}) es gratis?
+Sí, {'los 900 son gratuitos desde fijo y móvil.' if len(telefono_limpio) == 9 else f'el [{telefono}](tel:{telefono_limpio_tel}) es gratuito desde móviles de {emp["nombre"]}.'}
 
 ### ¿Puedo llamar desde el extranjero?
-{'No, los 900 solo funcionan desde España.' if len(telefono_limpio) == 9 else f'El {telefono} solo funciona desde España.'}
+{'No, los 900 solo funcionan desde España.' if len(telefono_limpio) == 9 else f'El [{telefono}](tel:{telefono_limpio_tel}) solo funciona desde España.'}
 
 ### ¿Qué hago si está ocupado?
 Llama en horarios de menor afluencia (martes a jueves, 10:00-12:00) o usa el chat web.
@@ -1306,10 +1307,10 @@ Sí, pero recomendamos hacerlo por escrito para tener constancia.
 Sí, disponible en App Store y Google Play.
 
 ### ¿Cómo doy de baja el servicio?
-Llamando al {telefono}, por app móvil, o email a {email}.
+Llamando al [{telefono}](tel:{telefono_limpio_tel}), por app móvil, o email a [{email}](mailto:{email}).
 
 ### ¿Qué hago si me cobran de más?
-Contacta con {emp['nombre']} en el {telefono}. Si no lo resuelven en 30 días, reclama ante Consumo.
+Contacta con {emp['nombre']} en el [{telefono}](tel:{telefono_limpio_tel}). Si no lo resuelven en 30 días, reclama ante Consumo.
 
 ---
 
@@ -1330,8 +1331,7 @@ Contacta con {emp['nombre']} en el {telefono}. Si no lo resuelven en 30 días, r
 *¿Te ha sido útil? Compártelo para ayudar a otros usuarios. Si el teléfono ha cambiado, [avísanos](mailto:info@telefonos-gratuitos.com).*
 """
         
-        # CAMBIO 1: Eliminada la tabla de contenidos (TOC)
-        # WordPress/Divi ya puede generar su propio índice automáticamente si lo necesitas
+        # CAMBIO: Sin tabla de contenidos
         articulo_final = generar_enlaces_internos(articulo_base, df, emp['nombre'])
         
         schema_faq = generar_schema_faq(articulo_final, emp['nombre'])
@@ -1356,11 +1356,11 @@ Contacta con {emp['nombre']} en el {telefono}. Si no lo resuelven en 30 días, r
         col4.metric("✅ Aprobado", "SÍ" if resultado_val['aprobado'] else "NO")
         
         if not resultado_val['aprobado']:
-            st.error("️ Necesita mejoras:\n" + "\n".join(resultado_val['errores']))
+            st.error("⚠️ Necesita mejoras:\n" + "\n".join(resultado_val['errores']))
         
         st.divider()
         
-        st.subheader(" Exportar para WP All Import Pro")
+        st.subheader("📦 Exportar para WP All Import Pro")
         st.info("💡 Genera un CSV optimizado para importar artículos masivamente a WordPress.")
         
         slug = generar_slug(emp['nombre'])
@@ -1405,7 +1405,7 @@ Contacta con {emp['nombre']} en el {telefono}. Si no lo resuelven en 30 días, r
         
         if st.session_state.historial_articulos:
             st.divider()
-            st.subheader(f" Historial ({len(st.session_state.historial_articulos)} artículos)")
+            st.subheader(f"📚 Historial ({len(st.session_state.historial_articulos)} artículos)")
             
             df_historial = pd.DataFrame([{
                 'ID': a['id'],
@@ -1448,7 +1448,7 @@ Contacta con {emp['nombre']} en el {telefono}. Si no lo resuelven en 30 días, r
                         type="primary"
                     )
             
-            with st.expander(" Instrucciones WP All Import"):
+            with st.expander("📖 Instrucciones WP All Import"):
                 st.markdown("""
                 ### 🚀 Cómo importar a WordPress
                 
@@ -1487,7 +1487,7 @@ with tab5:
     col1.metric("🏢 Empresas", len(df))
     col2.metric("📞 Con teléfono", len(df[df['telefono_900'].notna()]) if not df.empty else 0)
     col3.metric("🌐 Con web", len(df[df['web_oficial'].notna()]) if not df.empty else 0)
-    col4.metric(" Historial", len(st.session_state.historial_articulos))
+    col4.metric("📚 Historial", len(st.session_state.historial_articulos))
     
     st.divider()
     st.subheader("📅 Fecha")
