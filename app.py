@@ -71,6 +71,25 @@ def generar_slug(nombre_empresa):
     return slug.strip('-')
 
 # ==========================================
+# FUNCIÓN PARA LIMPIAR CONTENIDO DE IA
+# ==========================================
+def limpiar_contenido_ia(texto):
+    """Limpia el contenido generado por la IA eliminando H2 duplicados y separadores"""
+    if not texto:
+        return texto
+    
+    # Eliminar líneas que solo contienen ---
+    lineas = texto.split('\n')
+    lineas_limpias = [l for l in lineas if l.strip() != '---']
+    texto = '\n'.join(lineas_limpias)
+    
+    # Eliminar H2 duplicados al inicio (si hay dos H2 seguidos, eliminar el primero)
+    patron_h2_doble = r'^## .+\n## (.+)$'
+    texto = re.sub(patron_h2_doble, r'## \1', texto, flags=re.MULTILINE)
+    
+    return texto
+
+# ==========================================
 # CONVERSIÓN MARKDOWN A HTML
 # ==========================================
 def markdown_a_html(texto):
@@ -558,18 +577,20 @@ Incluye:
 - 3 trucos para reducir el tiempo de espera
 - Advertencias sobre opciones que redirigen a ventas o alargan la llamada
 
-Tono: práctico y directo. Español de España. Usa emojis para hacer la lectura más fácil.""",
+Tono: práctico y directo. Español de España. Usa emojis para hacer la lectura más fácil. NO uses separadores horizontales (---).""",
 
             "formas_contacto": f"""Escribe una sección detallada sobre TODAS las formas de contactar con {nombre} además del teléfono {telefono}.
 
-Incluye estas subsecciones con título H3:
+IMPORTANTE: NO incluyas un título H2 al inicio. Empieza directamente con el texto introductorio.
+
+Incluye estas subsecciones con título H3 (##):
 ### 💬 Chat en Vivo
 Descripción, disponibilidad, enlace a {web}
 
 ### 📱 WhatsApp Business  
 Número si existe, horario, tipo de consultas que atienden
 
-###  Correo Electrónico
+### 📧 Correo Electrónico
 Email de atención al cliente, tiempo medio de respuesta
 
 ### 📲 App Móvil
@@ -581,7 +602,7 @@ Twitter/X, Facebook, Instagram - cómo contactar y tiempo de respuesta
 ### 🏪 Tiendas Físicas
 Cómo localizar la tienda más cercana
 
-Tono: informativo y práctico. Español de España. Usa formato Markdown con negritas y listas."""
+Tono: informativo y práctico. Español de España. Usa formato Markdown con negritas y listas. NO uses separadores horizontales (---)."""
         }
         
         for intento in range(self.max_reintentos):
@@ -636,7 +657,7 @@ El operador que nos atendió mostró un **trato amable y profesional**, resolvie
 
 **Pasos para hablar con un operador:**
 
-1.  Marca el **{telefono}** desde tu teléfono
+1. 📞 Marca el **{telefono}** desde tu teléfono
 2. ⏳ Espera a que comience la locución inicial (no pulses nada todavía)
 3. 🔢 Pulsa la secuencia: **{menu_voz}**
 4. 🆔 Ten a mano tu DNI o número de cliente (te lo pedirán)
@@ -940,8 +961,8 @@ if 'historial_articulos' not in st.session_state:
 
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "📊 1. Base de Datos",
-    "️ 2. Scraping",
-    " 3. Generar Artículo",
+    "🕷️ 2. Scraping",
+    "🤖 3. Generar Artículo",
     "🚀 4. Exportar WP All Import",
     "🔍 5. Diagnóstico"
 ])
@@ -960,8 +981,8 @@ with tab1:
     
     st.divider()
     
-    st.subheader(" Editar Empresas")
-    st.info(" Edita la tabla directamente como si fuera Excel.")
+    st.subheader("📝 Editar Empresas")
+    st.info("💡 Edita la tabla directamente como si fuera Excel.")
     edited_df = st.data_editor(df, num_rows="dynamic", use_container_width=True, key="data_editor_empresas")
     
     col1, col2 = st.columns(2)
@@ -1003,7 +1024,7 @@ with tab1:
                         st.session_state.pop('empresa_actual', None)
                         st.session_state.pop('secciones_articulo', None)
                         
-                        st.success("️ Base de datos borrada correctamente.")
+                        st.success("🗑️ Base de datos borrada correctamente.")
                         st.balloons()
                         
                         df = df_vacio
@@ -1036,7 +1057,7 @@ with tab1:
 
 # TAB 2: SCRAPING
 with tab2:
-    st.header("️ Extracción Inteligente")
+    st.header("🕷️ Extracción Inteligente")
     
     modo = st.radio(
         "Método:",
@@ -1111,23 +1132,23 @@ with tab3:
                 progress = st.progress(0)
                 
                 st.write("📝 Experiencia...")
-                secciones['experiencia'] = ai.generar(datos_empresa, "experiencia")
+                secciones['experiencia'] = limpiar_contenido_ia(ai.generar(datos_empresa, "experiencia"))
                 progress.progress(20)
                 
                 st.write("🗺️ Menú de voz...")
-                secciones['menu_voz'] = ai.generar(datos_empresa, "menu_voz")
+                secciones['menu_voz'] = limpiar_contenido_ia(ai.generar(datos_empresa, "menu_voz"))
                 progress.progress(40)
                 
-                st.write(" Formas de contacto...")
-                secciones['formas_contacto'] = ai.generar(datos_empresa, "formas_contacto")
+                st.write("📧 Formas de contacto...")
+                secciones['formas_contacto'] = limpiar_contenido_ia(ai.generar(datos_empresa, "formas_contacto"))
                 progress.progress(60)
                 
                 st.write("💡 Consejos...")
-                secciones['consejos'] = ai.generar(datos_empresa, "consejos")
+                secciones['consejos'] = limpiar_contenido_ia(ai.generar(datos_empresa, "consejos"))
                 progress.progress(80)
                 
-                st.write("️ Comparativa...")
-                secciones['comparativa'] = ai.generar(datos_empresa, "comparativa")
+                st.write("⚖️ Comparativa...")
+                secciones['comparativa'] = limpiar_contenido_ia(ai.generar(datos_empresa, "comparativa"))
                 progress.progress(100)
                 
                 st.session_state['secciones_articulo'] = secciones
@@ -1323,7 +1344,7 @@ Contacta con {emp['nombre']} en el [{telefono}](tel:{telefono_limpio_tel}). Si n
         num_h2 = articulo_final.count('\n## ')
         
         col1, col2, col3, col4 = st.columns(4)
-        col1.metric(" Palabras", f"{num_palabras}")
+        col1.metric("📊 Palabras", f"{num_palabras}")
         col2.metric("📑 Secciones", f"{num_h2}")
         col3.metric("⭐ Puntuación", f"{resultado_val['puntuacion']}/100")
         col4.metric("✅ Aprobado", "SÍ" if resultado_val['aprobado'] else "NO")
@@ -1373,7 +1394,7 @@ Contacta con {emp['nombre']} en el [{telefono}](tel:{telefono_limpio_tel}). Si n
             if st.session_state.historial_articulos:
                 if st.button("🗑️ Limpiar Historial", use_container_width=True, key="btn_limpiar_historial"):
                     st.session_state.historial_articulos = []
-                    st.success("️ Historial limpiado")
+                    st.success("🗑️ Historial limpiado")
                     st.rerun()
         
         if st.session_state.historial_articulos:
@@ -1421,7 +1442,7 @@ Contacta con {emp['nombre']} en el [{telefono}](tel:{telefono_limpio_tel}). Si n
                         type="primary"
                     )
             
-            with st.expander(" Instrucciones WP All Import"):
+            with st.expander("📖 Instrucciones WP All Import"):
                 st.markdown("""
                 ### 🚀 Cómo importar a WordPress
                 
@@ -1452,9 +1473,9 @@ Contacta con {emp['nombre']} en el [{telefono}](tel:{telefono_limpio_tel}). Si n
 
 # TAB 5: DIAGNÓSTICO
 with tab5:
-    st.header(" Diagnóstico")
+    st.header("🔍 Diagnóstico")
     
-    st.subheader(" Estadísticas")
+    st.subheader("📊 Estadísticas")
     
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("🏢 Empresas", len(df))
