@@ -122,9 +122,9 @@ def markdown_a_html(texto):
     # 4. Convertir enlaces
     texto = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', r'<a href="\2">\1</a>', texto)
     
-    # 5. Convertir separadores horizontales
-    texto = re.sub(r'^---$', '<hr>', texto, flags=re.MULTILINE)
-    texto = re.sub(r'^\*\*\*$', '<hr>', texto, flags=re.MULTILINE)
+    # 5. NO convertir separadores --- a <hr> (los eliminamos)
+    texto = re.sub(r'^---$', '', texto, flags=re.MULTILINE)
+    texto = re.sub(r'^\*\*\*$', '', texto, flags=re.MULTILINE)
     
     # 6. Convertir listas no ordenadas
     def convertir_lista_no_ordenada(match):
@@ -178,8 +178,11 @@ def markdown_a_html(texto):
     texto = re.sub(r'<p>\s*(<ul>.*?</ul>)\s*</p>', r'\1', texto, flags=re.DOTALL)
     texto = re.sub(r'<p>\s*(<ol>.*?</ol>)\s*</p>', r'\1', texto, flags=re.DOTALL)
     texto = re.sub(r'<p>\s*(<table>.*?</table>)\s*</p>', r'\1', texto, flags=re.DOTALL)
-    texto = re.sub(r'<p>\s*<hr>\s*</p>', '<hr>', texto)
+    texto = re.sub(r'<p>\s*<hr>\s*</p>', '', texto)
     texto = re.sub(r'<p>\s*</p>', '', texto)
+    
+    # 10. Eliminar <hr> huérfanos que puedan quedar
+    texto = re.sub(r'<hr\s*/?>', '', texto)
     
     return texto
 
@@ -191,7 +194,7 @@ def generar_schema_faq(articulo_markdown, nombre_empresa):
     """Extrae las FAQ del artículo y genera el Schema.org FAQPage"""
     faq_section = ""
     
-    if "## ❓ Preguntas Frecuentes" in articulo_markdown:
+    if "##  Preguntas Frecuentes" in articulo_markdown:
         inicio = articulo_markdown.find("## ❓ Preguntas Frecuentes")
     elif "## Preguntas Frecuentes" in articulo_markdown:
         inicio = articulo_markdown.find("## Preguntas Frecuentes")
@@ -421,7 +424,7 @@ def generar_meta_descripcion(empresa):
         horario = "Consultar web"
     
     plantillas = [
-        f"☎️ Teléfono gratuito de {nombre}: {telefono}. Horario: {horario}. ✅ Verificado hoy. Guía completa: menú de voz, alternativas y consejos para reclamar.",
+        f"️ Teléfono gratuito de {nombre}: {telefono}. Horario: {horario}. ✅ Verificado hoy. Guía completa: menú de voz, alternativas y consejos para reclamar.",
         f"¿Buscas el teléfono de {nombre}? 📞 {telefono} (GRATIS). Horario {horario}. Te explicamos cómo saltarte el menú de voz y hablar rápido con un operador.",
         f"{nombre} teléfono de atención al cliente: {telefono} ✓ Gratis ✓ Horario: {horario} ✓ Guía paso a paso para contactar sin esperas.",
     ]
@@ -566,7 +569,7 @@ Descripción, disponibilidad, enlace a {web}
 ### 📱 WhatsApp Business  
 Número si existe, horario, tipo de consultas que atienden
 
-### 📧 Correo Electrónico
+###  Correo Electrónico
 Email de atención al cliente, tiempo medio de respuesta
 
 ### 📲 App Móvil
@@ -633,7 +636,7 @@ El operador que nos atendió mostró un **trato amable y profesional**, resolvie
 
 **Pasos para hablar con un operador:**
 
-1. 📞 Marca el **{telefono}** desde tu teléfono
+1.  Marca el **{telefono}** desde tu teléfono
 2. ⏳ Espera a que comience la locución inicial (no pulses nada todavía)
 3. 🔢 Pulsa la secuencia: **{menu_voz}**
 4. 🆔 Ten a mano tu DNI o número de cliente (te lo pedirán)
@@ -937,8 +940,8 @@ if 'historial_articulos' not in st.session_state:
 
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "📊 1. Base de Datos",
-    "🕷️ 2. Scraping",
-    "🤖 3. Generar Artículo",
+    "️ 2. Scraping",
+    " 3. Generar Artículo",
     "🚀 4. Exportar WP All Import",
     "🔍 5. Diagnóstico"
 ])
@@ -957,8 +960,8 @@ with tab1:
     
     st.divider()
     
-    st.subheader("📝 Editar Empresas")
-    st.info("💡 Edita la tabla directamente como si fuera Excel.")
+    st.subheader(" Editar Empresas")
+    st.info(" Edita la tabla directamente como si fuera Excel.")
     edited_df = st.data_editor(df, num_rows="dynamic", use_container_width=True, key="data_editor_empresas")
     
     col1, col2 = st.columns(2)
@@ -1000,7 +1003,7 @@ with tab1:
                         st.session_state.pop('empresa_actual', None)
                         st.session_state.pop('secciones_articulo', None)
                         
-                        st.success("🗑️ Base de datos borrada correctamente.")
+                        st.success("️ Base de datos borrada correctamente.")
                         st.balloons()
                         
                         df = df_vacio
@@ -1033,7 +1036,7 @@ with tab1:
 
 # TAB 2: SCRAPING
 with tab2:
-    st.header("🕷️ Extracción Inteligente")
+    st.header("️ Extracción Inteligente")
     
     modo = st.radio(
         "Método:",
@@ -1115,7 +1118,7 @@ with tab3:
                 secciones['menu_voz'] = ai.generar(datos_empresa, "menu_voz")
                 progress.progress(40)
                 
-                st.write("📧 Formas de contacto...")
+                st.write(" Formas de contacto...")
                 secciones['formas_contacto'] = ai.generar(datos_empresa, "formas_contacto")
                 progress.progress(60)
                 
@@ -1123,7 +1126,7 @@ with tab3:
                 secciones['consejos'] = ai.generar(datos_empresa, "consejos")
                 progress.progress(80)
                 
-                st.write("⚖️ Comparativa...")
+                st.write("️ Comparativa...")
                 secciones['comparativa'] = ai.generar(datos_empresa, "comparativa")
                 progress.progress(100)
                 
@@ -1176,12 +1179,10 @@ with tab4:
         
         fecha_verificacion = fecha_espanol()
         
-        # CAMBIO: Eliminada la línea H1 duplicada y sin tabla de contenidos
+        # CAMBIO: Sin H1 duplicado, sin tabla de contenidos, sin separadores ---, sin H2 "Todas las Formas de Contactar"
         articulo_base = f"""**Última verificación:** {fecha_verificacion} ✅  
 **Autor:** Equipo Editorial de telefonos-gratuitos.com  
 **Tiempo de lectura:** 7 minutos
-
----
 
 ## 📞 El Teléfono de {emp['nombre']}
 
@@ -1196,8 +1197,6 @@ Si necesitas contactar con {emp['nombre']} para resolver dudas sobre facturació
 | **Web Oficial** | [{web}]({web}) |
 | **Email** | [{email}](mailto:{email}) |
 
----
-
 ## 🕐 Horarios de Atención al Cliente
 
 **Horario habitual:**
@@ -1207,19 +1206,13 @@ Si necesitas contactar con {emp['nombre']} para resolver dudas sobre facturació
 
 **💡 Consejo:** Los mejores momentos para llamar son martes, miércoles y jueves entre las 10:00 y las 12:00.
 
----
-
 ## 🗺️ Cómo Saltarse el Menú de Voz
 
 {secciones.get('menu_voz', '')}
 
----
-
-## 📧 Todas las Formas de Contactar
+## 📧 Formas de Contacto
 
 {secciones.get('formas_contacto', '')}
-
----
 
 ## 💰 ¿Cuánto Cuesta Llamar?
 
@@ -1230,13 +1223,9 @@ Si necesitas contactar con {emp['nombre']} para resolver dudas sobre facturació
 | Llamadas a 901 | 0,10€ - 0,20€/min |
 | Llamadas a 902 | 0,20€ - 0,50€/min |
 
----
-
 ## 📝 Nuestra Experiencia
 
 {secciones.get('experiencia', '')}
-
----
 
 ## ⚖️ Derechos del Consumidor
 
@@ -1245,8 +1234,6 @@ Si necesitas contactar con {emp['nombre']} para resolver dudas sobre facturació
 3. **Derecho a información clara**
 4. **Derecho a reclamar**
 5. **Derecho a la protección de datos (RGPD)**
-
----
 
 ## 📋 Cómo Reclamar
 
@@ -1262,19 +1249,13 @@ Si en 30 días no hay respuesta, solicita el libro oficial.
 ### Paso 4: Vía administrativa
 Presenta reclamación ante OMIC o Consumo de tu comunidad.
 
----
-
 ## 💡 Consejos
 
 {secciones.get('consejos', '')}
 
----
-
 ## 🏢 Sobre {emp['nombre']}
 
 {emp['nombre']} es una empresa líder en {emp.get('sector', 'servicios')} en España. Su sede se encuentra en {direccion}.
-
----
 
 ## ⭐ Opiniones
 
@@ -1283,8 +1264,6 @@ Según Trustpilot, OCU y Google Reviews:
 - **Puntos fuertes:** Existencia del [{telefono}](tel:{telefono_limpio_tel}) y profesionalidad de operadores
 - **Puntos débiles:** Tiempos de espera y dificultad del menú de voz
 - **Recomendación:** Llamar a primera hora o usar chat web
-
----
 
 ## ❓ Preguntas Frecuentes
 
@@ -1312,13 +1291,9 @@ Llamando al [{telefono}](tel:{telefono_limpio_tel}), por app móvil, o email a [
 ### ¿Qué hago si me cobran de más?
 Contacta con {emp['nombre']} en el [{telefono}](tel:{telefono_limpio_tel}). Si no lo resuelven en 30 días, reclama ante Consumo.
 
----
-
 ## ⚖️ Comparativa del Sector
 
 {secciones.get('comparativa', '')}
-
----
 
 ## 🔗 Artículos Relacionados
 
@@ -1326,12 +1301,10 @@ Contacta con {emp['nombre']} en el [{telefono}](tel:{telefono_limpio_tel}). Si n
 - Teléfono gratuito de {emp.get('sector_relacionado_2', 'otras empresas')}
 - Cómo reclamar a empresas de {emp.get('sector', 'servicios')}
 
----
-
 *¿Te ha sido útil? Compártelo para ayudar a otros usuarios. Si el teléfono ha cambiado, [avísanos](mailto:info@telefonos-gratuitos.com).*
 """
         
-        # CAMBIO: Sin tabla de contenidos
+        # Sin tabla de contenidos
         articulo_final = generar_enlaces_internos(articulo_base, df, emp['nombre'])
         
         schema_faq = generar_schema_faq(articulo_final, emp['nombre'])
@@ -1350,7 +1323,7 @@ Contacta con {emp['nombre']} en el [{telefono}](tel:{telefono_limpio_tel}). Si n
         num_h2 = articulo_final.count('\n## ')
         
         col1, col2, col3, col4 = st.columns(4)
-        col1.metric("📊 Palabras", f"{num_palabras}")
+        col1.metric(" Palabras", f"{num_palabras}")
         col2.metric("📑 Secciones", f"{num_h2}")
         col3.metric("⭐ Puntuación", f"{resultado_val['puntuacion']}/100")
         col4.metric("✅ Aprobado", "SÍ" if resultado_val['aprobado'] else "NO")
@@ -1400,7 +1373,7 @@ Contacta con {emp['nombre']} en el [{telefono}](tel:{telefono_limpio_tel}). Si n
             if st.session_state.historial_articulos:
                 if st.button("🗑️ Limpiar Historial", use_container_width=True, key="btn_limpiar_historial"):
                     st.session_state.historial_articulos = []
-                    st.success("🗑️ Historial limpiado")
+                    st.success("️ Historial limpiado")
                     st.rerun()
         
         if st.session_state.historial_articulos:
@@ -1448,7 +1421,7 @@ Contacta con {emp['nombre']} en el [{telefono}](tel:{telefono_limpio_tel}). Si n
                         type="primary"
                     )
             
-            with st.expander("📖 Instrucciones WP All Import"):
+            with st.expander(" Instrucciones WP All Import"):
                 st.markdown("""
                 ### 🚀 Cómo importar a WordPress
                 
@@ -1479,9 +1452,9 @@ Contacta con {emp['nombre']} en el [{telefono}](tel:{telefono_limpio_tel}). Si n
 
 # TAB 5: DIAGNÓSTICO
 with tab5:
-    st.header("🔍 Diagnóstico")
+    st.header(" Diagnóstico")
     
-    st.subheader("📊 Estadísticas")
+    st.subheader(" Estadísticas")
     
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("🏢 Empresas", len(df))
