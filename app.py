@@ -616,7 +616,7 @@ Tono: informativo y práctico. Español de España. Usa formato Markdown con neg
                 response = self.client.chat.completions.create(
                     model=self.model,
                     messages=[
-                        {"role": "system", "content": "Eres un redactor experto en SEO y consumo en España. Escribe texto 100% original, natural, sin clichés de IA. Evita frases como 'En conclusión', 'Es importante destacar', 'En resumen'. Usa párrafos cortos, listas y negritas para facilitar la lectura. NUNCA generes títulos H2 en las secciones, solo H3."},
+                        {"role": "system", "content": "Eres un redactor SEO experto en consumo español con 10 años de experiencia. Escribe como un humano real: usa tono cercano, ejemplos concretos, anécdotas personales ('he probado', 'mi equipo ha verificado'). Evita clichés de IA: NUNCA uses 'En conclusión', 'Es importante destacar', 'En el mundo actual', 'Cabe mencionar'. Escribe párrafos de 2-4 líneas máximo. Usa negritas solo para información clave. NUNCA generes títulos H2 en las secciones, solo H3 (###)."},
                         {"role": "user", "content": prompts[tipo]}
                     ],
                     temperature=0.7,
