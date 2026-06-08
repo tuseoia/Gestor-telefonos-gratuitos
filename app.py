@@ -443,7 +443,7 @@ def generar_meta_descripcion(empresa):
         horario = "Consultar web"
     
     plantillas = [
-        f"☎️ Teléfono gratuito de {nombre}: {telefono}. Horario: {horario}. ✅ Verificado hoy. Guía completa: menú de voz, alternativas y consejos para reclamar.",
+        f"️ Teléfono gratuito de {nombre}: {telefono}. Horario: {horario}. ✅ Verificado hoy. Guía completa: menú de voz, alternativas y consejos para reclamar.",
         f"¿Buscas el teléfono de {nombre}? 📞 {telefono} (GRATIS). Horario {horario}. Te explicamos cómo saltarte el menú de voz y hablar rápido con un operador.",
         f"{nombre} teléfono de atención al cliente: {telefono} ✓ Gratis ✓ Horario: {horario} ✓ Guía paso a paso para contactar sin esperas.",
     ]
@@ -593,7 +593,7 @@ Estructura obligatoria:
 ### 💬 Chat en Vivo
 Descripción, disponibilidad, enlace a {web}
 
-### 📱 WhatsApp Business  
+###  WhatsApp Business  
 Número si existe, horario, tipo de consultas que atienden
 
 ### 📧 Correo Electrónico
@@ -665,9 +665,9 @@ El operador que nos atendió mostró un **trato amable y profesional**, resolvie
 
 1. 📞 Marca el **{telefono}** desde tu teléfono
 2. ⏳ Espera a que comience la locución inicial (no pulses nada todavía)
-3.  Pulsa la secuencia: **{menu_voz}**
+3. 🔢 Pulsa la secuencia: **{menu_voz}**
 4. 🆔 Ten a mano tu DNI o número de cliente (te lo pedirán)
-5. ⏱️ Espera en la cola (tiempo medio: {tiempo_espera} minutos)
+5. ️ Espera en la cola (tiempo medio: {tiempo_espera} minutos)
 
 **⚠️ Advertencias importantes:**
 
@@ -979,11 +979,11 @@ with tab1:
     
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.metric("🏢 Total Empresas", len(df))
+        st.metric(" Total Empresas", len(df))
     with col2:
         st.metric("📞 Con Teléfono", len(df[df['telefono_900'].notna()]) if not df.empty else 0)
     with col3:
-        st.metric("🌐 Con Web Oficial", len(df[df['web_oficial'].notna()]) if not df.empty else 0)
+        st.metric(" Con Web Oficial", len(df[df['web_oficial'].notna()]) if not df.empty else 0)
     
     st.divider()
     
@@ -994,7 +994,7 @@ with tab1:
     col1, col2 = st.columns(2)
     
     with col1:
-        if st.button(" Guardar Cambios", type="primary", use_container_width=True, key="btn_guardar_csv"):
+        if st.button("💾 Guardar Cambios", type="primary", use_container_width=True, key="btn_guardar_csv"):
             edited_df.to_csv(CSV_PATH, index=False)
             st.success("✅ Base de datos actualizada correctamente")
             df = edited_df
@@ -1009,7 +1009,7 @@ with tab1:
                 st.session_state.confirmar_borrado = True
                 st.rerun()
         else:
-            st.warning("⚠️ **¿Estás seguro?** Esta acción NO se puede deshacer.")
+            st.warning("️ **¿Estás seguro?** Esta acción NO se puede deshacer.")
             col_confirm, col_cancel = st.columns(2)
             with col_confirm:
                 if st.button("✅ Sí, borrar todo", type="primary", use_container_width=True, key="btn_confirmar_borrado"):
@@ -1051,7 +1051,7 @@ with tab1:
         try:
             csv_data = df.to_csv(index=False)
             st.download_button(
-                label="️ Descargar CSV",
+                label="⬇️ Descargar CSV",
                 data=csv_data,
                 file_name=f"empresas_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
                 mime='text/csv',
@@ -1067,15 +1067,15 @@ with tab2:
     
     modo = st.radio(
         "Método:",
-        ["🔍 Búsqueda Inteligente", "🔄 Scraping Automático", " Manual Asistido"],
+        ["🔍 Búsqueda Inteligente", "🔄 Scraping Automático", "✋ Manual Asistido"],
         horizontal=True,
         key="modo_extraccion_radio"
     )
     
-    if modo == "🔍 Búsqueda Inteligente":
+    if modo == " Búsqueda Inteligente":
         nombre_busqueda = st.text_input("Nombre de la empresa:", key="nombre_busqueda_inteligente")
         
-        if st.button(" Buscar", type="primary", key="btn_buscar_inteligente"):
+        if st.button("🔍 Buscar", type="primary", key="btn_buscar_inteligente"):
             if nombre_busqueda:
                 with st.spinner("Buscando..."):
                     searcher = GoogleSearcher()
@@ -1091,7 +1091,7 @@ with tab2:
     elif modo == "🔄 Scraping Automático":
         url = st.text_input("URL:", key="url_scraping_auto")
         
-        if st.button(" Analizar", type="primary", key="btn_analizar_auto"):
+        if st.button("🔍 Analizar", type="primary", key="btn_analizar_auto"):
             if url:
                 with st.spinner("Analizando..."):
                     scraper = SmartScraper()
@@ -1131,17 +1131,17 @@ with tab3:
         empresa_seleccionada = st.selectbox("Empresa:", df['nombre'].dropna().tolist(), key="select_empresa_generar")
         datos_empresa = df[df['nombre'] == empresa_seleccionada].iloc[0].to_dict()
         
-        if st.button("🚀 Generar Artículo", type="primary", key="btn_generar_ia"):
+        if st.button(" Generar Artículo", type="primary", key="btn_generar_ia"):
             with st.spinner("Generando... (1-2 minutos)"):
                 ai = QwenGenerator()
                 secciones = {}
                 progress = st.progress(0)
                 
-                st.write(" Experiencia...")
+                st.write("📝 Experiencia...")
                 secciones['experiencia'] = limpiar_contenido_ia(ai.generar(datos_empresa, "experiencia"))
                 progress.progress(20)
                 
-                st.write("️ Menú de voz...")
+                st.write("🗺️ Menú de voz...")
                 secciones['menu_voz'] = limpiar_contenido_ia(ai.generar(datos_empresa, "menu_voz"))
                 progress.progress(40)
                 
@@ -1153,7 +1153,7 @@ with tab3:
                 secciones['consejos'] = limpiar_contenido_ia(ai.generar(datos_empresa, "consejos"))
                 progress.progress(80)
                 
-                st.write("️ Comparativa...")
+                st.write("⚖️ Comparativa...")
                 secciones['comparativa'] = limpiar_contenido_ia(ai.generar(datos_empresa, "comparativa"))
                 progress.progress(100)
                 
@@ -1184,11 +1184,11 @@ with tab4:
             nota_telefono = "Es totalmente gratis desde fijo y móvil en España."
         
         horario = emp.get('horario_lunes_viernes', 'Lunes a Viernes de 9:00 a 20:00')
-        if pd.isna(horario) or str(horario).lower() in ['nan', '', 'consultar web']:
+        if pd.isna(horario) or str(horario).lower() in ['nan', '', 'consultar web', 'lista']:
             horario = "Lunes a Viernes de 9:00 a 20:00"
         
         horario_sabado = emp.get('horario_sabado', 'Sábados de 10:00 a 14:00')
-        if pd.isna(horario_sabado) or str(horario_sabado).lower() in ['nan', '', 'consultar web oficial']:
+        if pd.isna(horario_sabado) or str(horario_sabado).lower() in ['nan', '', 'consultar web oficial', 'lista']:
             horario_sabado = "Sábados de 10:00 a 14:00"
         
         web = limpiar_url(emp.get('web_oficial', f"https://www.{emp['nombre'].lower().replace(' ', '')}.es"))
@@ -1206,7 +1206,7 @@ with tab4:
         
         fecha_verificacion = fecha_espanol()
         
-        # CAMBIO DEFINITIVO: Sin H2 "Formas de Contacto" - la IA ya no debe generarlo
+        # CAMBIO DEFINITIVO: Horarios en párrafos simples (no listas) para evitar palabra "Lista"
         articulo_base = f"""**Última verificación:** {fecha_verificacion} ✅  
 **Autor:** Equipo Editorial de telefonos-gratuitos.com  
 **Tiempo de lectura:** 7 minutos
@@ -1227,13 +1227,16 @@ Si necesitas contactar con {emp['nombre']} para resolver dudas sobre facturació
 ## 🕐 Horarios de Atención al Cliente
 
 **Horario habitual:**
-- **Lunes a Viernes:** {horario}
-- **Sábados:** {horario_sabado}
-- **Domingos y festivos:** Generalmente cerrado
+
+**Lunes a Viernes:** {horario}
+
+**Sábados:** {horario_sabado}
+
+**Domingos y festivos:** Generalmente cerrado
 
 **💡 Consejo:** Los mejores momentos para llamar son martes, miércoles y jueves entre las 10:00 y las 12:00.
 
-## ️ Cómo Saltarse el Menú de Voz
+## 🗺️ Cómo Saltarse el Menú de Voz
 
 {secciones.get('menu_voz', '')}
 
@@ -1348,17 +1351,17 @@ Contacta con {emp['nombre']} en el [{telefono}](tel:{telefono_limpio_tel}). Si n
         num_h2 = articulo_final.count('\n## ')
         
         col1, col2, col3, col4 = st.columns(4)
-        col1.metric(" Palabras", f"{num_palabras}")
+        col1.metric("📊 Palabras", f"{num_palabras}")
         col2.metric("📑 Secciones", f"{num_h2}")
         col3.metric("⭐ Puntuación", f"{resultado_val['puntuacion']}/100")
         col4.metric("✅ Aprobado", "SÍ" if resultado_val['aprobado'] else "NO")
         
         if not resultado_val['aprobado']:
-            st.error("⚠️ Necesita mejoras:\n" + "\n".join(resultado_val['errores']))
+            st.error("️ Necesita mejoras:\n" + "\n".join(resultado_val['errores']))
         
         st.divider()
         
-        st.subheader("📦 Exportar para WP All Import Pro")
+        st.subheader(" Exportar para WP All Import Pro")
         st.info("💡 Genera un CSV optimizado para importar artículos masivamente a WordPress.")
         
         slug = generar_slug(emp['nombre'])
@@ -1398,7 +1401,7 @@ Contacta con {emp['nombre']} en el [{telefono}](tel:{telefono_limpio_tel}). Si n
             if st.session_state.historial_articulos:
                 if st.button("🗑️ Limpiar Historial", use_container_width=True, key="btn_limpiar_historial"):
                     st.session_state.historial_articulos = []
-                    st.success("🗑️ Historial limpiado")
+                    st.success("️ Historial limpiado")
                     st.rerun()
         
         if st.session_state.historial_articulos:
@@ -1417,7 +1420,7 @@ Contacta con {emp['nombre']} en el [{telefono}](tel:{telefono_limpio_tel}). Si n
             st.dataframe(df_historial, use_container_width=True, hide_index=True)
             
             st.divider()
-            st.subheader("⬇️ Descargar CSV")
+            st.subheader("️ Descargar CSV")
             
             col1, col2 = st.columns(2)
             
@@ -1482,9 +1485,9 @@ with tab5:
     st.subheader("📊 Estadísticas")
     
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric(" Empresas", len(df))
+    col1.metric("🏢 Empresas", len(df))
     col2.metric("📞 Con teléfono", len(df[df['telefono_900'].notna()]) if not df.empty else 0)
-    col3.metric(" Con web", len(df[df['web_oficial'].notna()]) if not df.empty else 0)
+    col3.metric("🌐 Con web", len(df[df['web_oficial'].notna()]) if not df.empty else 0)
     col4.metric("📚 Historial", len(st.session_state.historial_articulos))
     
     st.divider()
