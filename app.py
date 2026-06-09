@@ -141,9 +141,13 @@ def markdown_a_html(texto):
     # 4. Convertir enlaces
     texto = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', r'<a href="\2">\1</a>', texto)
     
-    # 5. NO convertir separadores --- a <hr> (los eliminamos)
+    # 5. Eliminar separadores y líneas vacías resultantes
     texto = re.sub(r'^---$', '', texto, flags=re.MULTILINE)
     texto = re.sub(r'^\*\*\*$', '', texto, flags=re.MULTILINE)
+    # Eliminar líneas que solo contienen espacios
+    texto = re.sub(r'^\s+$', '', texto, flags=re.MULTILINE)
+    # Eliminar múltiples saltos de línea
+    texto = re.sub(r'\n{3,}', '\n\n', texto)
     
     # 6. Convertir listas no ordenadas
     def convertir_lista_no_ordenada(match):
@@ -184,6 +188,9 @@ def markdown_a_html(texto):
         p = p.strip()
         if not p:
             continue
+        # Eliminar líneas que solo contienen espacios o caracteres especiales
+        if re.match(r'^[\s\*\-#]+$', p):
+            continue
         if p.startswith('<h') or p.startswith('<ul') or p.startswith('<ol') or p.startswith('<table') or p.startswith('<hr') or p.startswith('<div'):
             resultado.append(p)
         else:
@@ -202,6 +209,15 @@ def markdown_a_html(texto):
     
     # 10. Eliminar <hr> huérfanos que puedan quedar
     texto = re.sub(r'<hr\s*/?>', '', texto)
+    
+    # 11. Eliminar bloques de código vacíos (los símbolos </>)
+    texto = re.sub(r'<pre>\s*</pre>', '', texto)
+    texto = re.sub(r'<code>\s*</code>', '', texto)
+    texto = re.sub(r'<!--\s*-->', '', texto)
+    
+    # 12. Eliminar líneas vacías múltiples
+    texto = re.sub(r'\n{3,}', '\n\n', texto)
+    texto = texto.strip()
     
     return texto
 
@@ -443,7 +459,7 @@ def generar_meta_descripcion(empresa):
         horario = "Consultar web"
     
     plantillas = [
-        f"️ Teléfono gratuito de {nombre}: {telefono}. Horario: {horario}. ✅ Verificado hoy. Guía completa: menú de voz, alternativas y consejos para reclamar.",
+        f"☎️ Teléfono gratuito de {nombre}: {telefono}. Horario: {horario}. ✅ Verificado hoy. Guía completa: menú de voz, alternativas y consejos para reclamar.",
         f"¿Buscas el teléfono de {nombre}? 📞 {telefono} (GRATIS). Horario {horario}. Te explicamos cómo saltarte el menú de voz y hablar rápido con un operador.",
         f"{nombre} teléfono de atención al cliente: {telefono} ✓ Gratis ✓ Horario: {horario} ✓ Guía paso a paso para contactar sin esperas.",
     ]
@@ -523,7 +539,7 @@ class QwenGenerator:
             api_key=os.getenv("OPENROUTER_API_KEY"),
             base_url="https://openrouter.ai/api/v1"
         )
-        self.model = "openai/gpt-4o-mini"
+        self.model = "qwen/qwen-2.5-72b-instruct"
         self.max_reintentos = 3
 
     def generar(self, empresa, tipo):
@@ -582,7 +598,7 @@ Tono: práctico y directo. Español de España. Usa emojis para hacer la lectura
             "formas_contacto": f"""Escribe una sección detallada sobre TODAS las formas de contactar con {nombre} además del teléfono {telefono}.
 
 REGLAS OBLIGATORIAS:
-- NO incluyas NINGÚN título H2 al inicio (ni "Todas las Formas de Contactar", ni "Formas de Contactar con {nombre}", ni ninguno similar)
+- NO incluyas NINGÚN título H2 al inicio
 - Empieza DIRECTAMENTE con el texto introductorio (un párrafo normal)
 - Usa SOLO H3 (###) para las subsecciones
 - NO uses separadores horizontales (---)
@@ -593,7 +609,7 @@ Estructura obligatoria:
 ### 💬 Chat en Vivo
 Descripción, disponibilidad, enlace a {web}
 
-###  WhatsApp Business  
+### 📱 WhatsApp Business  
 Número si existe, horario, tipo de consultas que atienden
 
 ### 📧 Correo Electrónico
@@ -605,7 +621,7 @@ Nombre de la app, funciones disponibles, enlaces a App Store y Google Play
 ### 🐦 Redes Sociales
 Twitter/X, Facebook, Instagram - cómo contactar y tiempo de respuesta
 
-###  Tiendas Físicas
+### 🏪 Tiendas Físicas
 Cómo localizar la tienda más cercana
 
 Tono: informativo y práctico. Español de España. Usa formato Markdown con negritas y listas."""
@@ -616,7 +632,7 @@ Tono: informativo y práctico. Español de España. Usa formato Markdown con neg
                 response = self.client.chat.completions.create(
                     model=self.model,
                     messages=[
-                        {"role": "system", "content": "Eres un redactor SEO experto en consumo español con 10 años de experiencia. Escribe como un humano real: usa tono cercano, ejemplos concretos, anécdotas personales ('he probado', 'mi equipo ha verificado'). Evita clichés de IA: NUNCA uses 'En conclusión', 'Es importante destacar', 'En el mundo actual', 'Cabe mencionar'. Escribe párrafos de 2-4 líneas máximo. Usa negritas solo para información clave. NUNCA generes títulos H2 en las secciones, solo H3 (###)."},
+                        {"role": "system", "content": "Eres un redactor experto en SEO y consumo en España. Escribe texto 100% original, natural, sin clichés de IA. Evita frases como 'En conclusión', 'Es importante destacar', 'En resumen'. Usa párrafos cortos, listas y negritas para facilitar la lectura. NUNCA generes títulos H2 en las secciones, solo H3."},
                         {"role": "user", "content": prompts[tipo]}
                     ],
                     temperature=0.7,
@@ -667,7 +683,7 @@ El operador que nos atendió mostró un **trato amable y profesional**, resolvie
 2. ⏳ Espera a que comience la locución inicial (no pulses nada todavía)
 3. 🔢 Pulsa la secuencia: **{menu_voz}**
 4. 🆔 Ten a mano tu DNI o número de cliente (te lo pedirán)
-5. ️ Espera en la cola (tiempo medio: {tiempo_espera} minutos)
+5. ⏱️ Espera en la cola (tiempo medio: {tiempo_espera} minutos)
 
 **⚠️ Advertencias importantes:**
 
@@ -979,11 +995,11 @@ with tab1:
     
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.metric(" Total Empresas", len(df))
+        st.metric("🏢 Total Empresas", len(df))
     with col2:
         st.metric("📞 Con Teléfono", len(df[df['telefono_900'].notna()]) if not df.empty else 0)
     with col3:
-        st.metric(" Con Web Oficial", len(df[df['web_oficial'].notna()]) if not df.empty else 0)
+        st.metric("🌐 Con Web Oficial", len(df[df['web_oficial'].notna()]) if not df.empty else 0)
     
     st.divider()
     
@@ -1009,7 +1025,7 @@ with tab1:
                 st.session_state.confirmar_borrado = True
                 st.rerun()
         else:
-            st.warning("️ **¿Estás seguro?** Esta acción NO se puede deshacer.")
+            st.warning("⚠️ **¿Estás seguro?** Esta acción NO se puede deshacer.")
             col_confirm, col_cancel = st.columns(2)
             with col_confirm:
                 if st.button("✅ Sí, borrar todo", type="primary", use_container_width=True, key="btn_confirmar_borrado"):
@@ -1072,7 +1088,7 @@ with tab2:
         key="modo_extraccion_radio"
     )
     
-    if modo == " Búsqueda Inteligente":
+    if modo == "🔍 Búsqueda Inteligente":
         nombre_busqueda = st.text_input("Nombre de la empresa:", key="nombre_busqueda_inteligente")
         
         if st.button("🔍 Buscar", type="primary", key="btn_buscar_inteligente"):
@@ -1131,7 +1147,7 @@ with tab3:
         empresa_seleccionada = st.selectbox("Empresa:", df['nombre'].dropna().tolist(), key="select_empresa_generar")
         datos_empresa = df[df['nombre'] == empresa_seleccionada].iloc[0].to_dict()
         
-        if st.button(" Generar Artículo", type="primary", key="btn_generar_ia"):
+        if st.button("🚀 Generar Artículo", type="primary", key="btn_generar_ia"):
             with st.spinner("Generando... (1-2 minutos)"):
                 ai = QwenGenerator()
                 secciones = {}
@@ -1206,7 +1222,7 @@ with tab4:
         
         fecha_verificacion = fecha_espanol()
         
-        # CAMBIO DEFINITIVO: Horarios en párrafos simples (no listas) para evitar palabra "Lista"
+        # CAMBIO: AÑADIDO H2 "Formas de Contactar con {empresa}"
         articulo_base = f"""**Última verificación:** {fecha_verificacion} ✅  
 **Autor:** Equipo Editorial de telefonos-gratuitos.com  
 **Tiempo de lectura:** 7 minutos
@@ -1240,6 +1256,8 @@ Si necesitas contactar con {emp['nombre']} para resolver dudas sobre facturació
 
 {secciones.get('menu_voz', '')}
 
+## 📧 Formas de Contactar con {emp['nombre']}
+
 {secciones.get('formas_contacto', '')}
 
 ## 💰 ¿Cuánto Cuesta Llamar?
@@ -1255,7 +1273,7 @@ Si necesitas contactar con {emp['nombre']} para resolver dudas sobre facturació
 
 {secciones.get('experiencia', '')}
 
-## ️ Derechos del Consumidor
+## ⚖️ Derechos del Consumidor
 
 1. **Derecho a un número gratuito**
 2. **Derecho a ser atendido en tiempo razonable**
@@ -1357,11 +1375,11 @@ Contacta con {emp['nombre']} en el [{telefono}](tel:{telefono_limpio_tel}). Si n
         col4.metric("✅ Aprobado", "SÍ" if resultado_val['aprobado'] else "NO")
         
         if not resultado_val['aprobado']:
-            st.error("️ Necesita mejoras:\n" + "\n".join(resultado_val['errores']))
+            st.error("⚠️ Necesita mejoras:\n" + "\n".join(resultado_val['errores']))
         
         st.divider()
         
-        st.subheader(" Exportar para WP All Import Pro")
+        st.subheader("📦 Exportar para WP All Import Pro")
         st.info("💡 Genera un CSV optimizado para importar artículos masivamente a WordPress.")
         
         slug = generar_slug(emp['nombre'])
@@ -1387,10 +1405,10 @@ Contacta con {emp['nombre']} en el [{telefono}](tel:{telefono_limpio_tel}). Si n
         
         col1, col2 = st.columns(2)
         with col1:
-            if st.button(" Añadir al Historial", type="primary", use_container_width=True, key="btn_add_historial", disabled=not resultado_val['aprobado']):
+            if st.button("➕ Añadir al Historial", type="primary", use_container_width=True, key="btn_add_historial", disabled=not resultado_val['aprobado']):
                 existe = any(a['empresa'] == emp['nombre'] for a in st.session_state.historial_articulos)
                 if existe:
-                    st.warning(f"️ Ya existe un artículo de **{emp['nombre']}**. Se actualizará.")
+                    st.warning(f"⚠️ Ya existe un artículo de **{emp['nombre']}**. Se actualizará.")
                     st.session_state.historial_articulos = [a for a in st.session_state.historial_articulos if a['empresa'] != emp['nombre']]
                 
                 st.session_state.historial_articulos.append(articulo_para_historial)
@@ -1401,7 +1419,7 @@ Contacta con {emp['nombre']} en el [{telefono}](tel:{telefono_limpio_tel}). Si n
             if st.session_state.historial_articulos:
                 if st.button("🗑️ Limpiar Historial", use_container_width=True, key="btn_limpiar_historial"):
                     st.session_state.historial_articulos = []
-                    st.success("️ Historial limpiado")
+                    st.success("🗑️ Historial limpiado")
                     st.rerun()
         
         if st.session_state.historial_articulos:
@@ -1420,7 +1438,7 @@ Contacta con {emp['nombre']} en el [{telefono}](tel:{telefono_limpio_tel}). Si n
             st.dataframe(df_historial, use_container_width=True, hide_index=True)
             
             st.divider()
-            st.subheader("️ Descargar CSV")
+            st.subheader("⬇️ Descargar CSV")
             
             col1, col2 = st.columns(2)
             
@@ -1449,7 +1467,7 @@ Contacta con {emp['nombre']} en el [{telefono}](tel:{telefono_limpio_tel}). Si n
                         type="primary"
                     )
             
-            with st.expander(" Instrucciones WP All Import"):
+            with st.expander("📖 Instrucciones WP All Import"):
                 st.markdown("""
                 ### 🚀 Cómo importar a WordPress
                 
